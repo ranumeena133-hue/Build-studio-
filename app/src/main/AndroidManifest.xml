@@ -1,15 +1,7 @@
-<?xml version="1.0" encoding="utf-8"?>
+
 <manifest
 	xmlns:android="http://schemas.android.com/apk/res/android"
-	package="com.example.newproject3">
-
-	<!-- GitHub se connect karne ke liye Internet permission -->
-	<uses-permission android:name="android.permission.INTERNET" />
-	
-	<!-- Files ko save aur read karne ke liye Storage permissions -->
-	<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-
+	package="com.example.newproject90">
 	<application
 		android:allowBackup="true"
 		android:icon="@drawable/app_icon"

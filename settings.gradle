@@ -5,5 +5,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "NEO NETWORK"
+rootProject.name = "NewProject90"
 include ':app'

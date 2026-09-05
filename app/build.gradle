@@ -6,7 +6,7 @@ android {
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.example.newproject3"
+        applicationId "com.example.newproject90"
         minSdk 21
         targetSdk 34
         versionCode 1

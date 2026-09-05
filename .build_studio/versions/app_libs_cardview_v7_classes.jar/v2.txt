@@ -1,2 +1,0 @@
-
-[This is a placeholder - please manually download cardview-v7-28.0.0.aar from a trusted source and import it via Library Manager]

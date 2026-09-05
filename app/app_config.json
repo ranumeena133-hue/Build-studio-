@@ -1,91 +1,9 @@
 {
   "javaVersion": "21",
   "libraries": [],
-  "libraryEntries": {
-    "0": {
-      "adUnits": [],
-      "appId": "",
-      "configurations": {
-        "auth_enabled": false,
-        "storage_enabled": false,
-        "messaging_enabled": false,
-        "google_signin_enabled": false
-      },
-      "data": "",
-      "libType": 0,
-      "reserved1": "",
-      "reserved2": "",
-      "reserved3": "",
-      "testDevices": [],
-      "useYn": "N"
-    },
-    "1": {
-      "adUnits": [],
-      "appId": "",
-      "configurations": {
-        "material3": true,
-        "dynamic_colors": true,
-        "theme": "Light"
-      },
-      "data": "",
-      "libType": 1,
-      "reserved1": "",
-      "reserved2": "",
-      "reserved3": "",
-      "testDevices": [],
-      "useYn": "N"
-    },
-    "4": {
-      "adUnits": [],
-      "appId": "",
-      "configurations": {},
-      "data": "",
-      "libType": 4,
-      "reserved1": "",
-      "reserved2": "",
-      "reserved3": "",
-      "testDevices": [],
-      "useYn": "N"
-    },
-    "5": {
-      "adUnits": [],
-      "appId": "",
-      "configurations": {},
-      "data": "",
-      "libType": 5,
-      "reserved1": "",
-      "reserved2": "",
-      "reserved3": "",
-      "testDevices": [],
-      "useYn": "N"
-    },
-    "6": {
-      "adUnits": [],
-      "appId": "",
-      "configurations": {},
-      "data": "",
-      "libType": 6,
-      "reserved1": "",
-      "reserved2": "",
-      "reserved3": "",
-      "testDevices": [],
-      "useYn": "N"
-    },
-    "7": {
-      "adUnits": [],
-      "appId": "",
-      "configurations": {},
-      "data": "",
-      "libType": 7,
-      "reserved1": "",
-      "reserved2": "",
-      "reserved3": "",
-      "testDevices": [],
-      "useYn": "N"
-    }
-  },
+  "libraryEntries": {},
   "minSdkVersion": 21,
-  "package": "com.neonetwork",
+  "package": "com.example.newproject90",
   "targetSdkVersion": 34,
   "useR8": false,
   "versionCode": 1,
