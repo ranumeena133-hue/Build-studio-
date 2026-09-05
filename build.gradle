@@ -1,0 +1,17 @@
+// रूट build फाइल — यहाँ सिर्फ Android plugin लिया गया है, कोई extra library नहीं
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.1.4'
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
