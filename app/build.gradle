@@ -1,12 +1,12 @@
-// ऐप मॉड्यूल — ध्यान दो: dependencies बिलकुल खाली हैं (कोई library नहीं)
-apply plugin: 'com.android.application'
+plugins {
+    id 'com.android.application'
+}
 
 android {
-    namespace 'com.buildstudio.sync'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.buildstudio.sync"
+        applicationId "com.example.newproject90"
         minSdk 21
         targetSdk 34
         versionCode 1
@@ -16,9 +16,9 @@ android {
     buildTypes {
         release {
             minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
-
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
@@ -26,5 +26,6 @@ android {
 }
 
 dependencies {
-    // जान-बूझकर खाली — सिर्फ Java + XML
+	// BUILD STUDIO does NOT support adding dependencies here,
+	// use the Library Manager instead
 }

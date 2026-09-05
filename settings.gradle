@@ -1,3 +1,9 @@
-// प्रोजेक्ट का नाम
-rootProject.name = "Build Studio"
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = "NewProject90"
 include ':app'
