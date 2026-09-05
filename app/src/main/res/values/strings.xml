@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Build Studio</string>
+    <string name="title">Build Studio — GitHub फाइल सिंक</string>
+
+    <string name="lbl_token">GitHub Token</string>
+    <string name="hint_token">ghp_xxxxxxxxxxxx</string>
+
+    <string name="lbl_owner">GitHub यूज़रनेम</string>
+    <string name="hint_owner">ranumeena133-hue</string>
+
+    <string name="lbl_repo">Repository का नाम</string>
+    <string name="hint_repo">Build-studio-</string>
+
+    <string name="lbl_branch">ब्रांच</string>
+    <string name="hint_branch">main</string>
+
+    <string name="lbl_remote">Repo के अंदर फाइल का रास्ता</string>
+    <string name="hint_remote">responsey.txt</string>
+
+    <string name="lbl_local">फोन में फाइल की जगह</string>
+    <string name="hint_local">/storage/emulated/0/Download/BuildStudio/responsey.txt</string>
+
+    <string name="btn_save">सेटिंग्स सेव करो</string>
+    <string name="btn_download">1) GitHub से लाओ और फोन में रखो</string>
+    <string name="btn_upload">2) फोन की फाइल GitHub पर भेजो</string>
+    <string name="btn_clear">लॉग साफ करो</string>
+    <string name="lbl_log">लॉग</string>
+</resources>
