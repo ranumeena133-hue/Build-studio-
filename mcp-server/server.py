@@ -261,6 +261,19 @@ def list_files(subdir: str = ".") -> str:
 
 
 @mcp.tool()
+def pull_github() -> str:
+    """Pull latest files from the GitHub repo into the server (files uploaded via GitHub web UI will appear here)."""
+    try:
+        r = _git("pull", "--rebase", "origin", BRANCH)
+        out = (r.stdout + r.stderr).strip()
+        schedule_sync(delay=1.0)
+        files = "\n".join(f"  - {p.relative_to(STORAGE)}" for p in sorted(STORAGE.rglob('*')) if p.is_file())
+        return f"GitHub pull: {'OK' if r.returncode == 0 else 'FAIL'}\n{out}\n\nAbhi server par files:\n{files}"
+    except Exception as e:
+        return _err(e)
+
+
+@mcp.tool()
 def download_link(path: str) -> str:
     """Return a ready-to-run Termux/curl command that downloads this file straight to a phone's Download folder."""
     try:
@@ -410,6 +423,19 @@ async def upload(request: Request) -> JSONResponse:
 async def sync_now(request: Request) -> JSONResponse:
     schedule_sync(delay=0.5)
     return JSONResponse({"ok": True, "msg": "GitHub sync shuru"})
+
+
+@mcp.custom_route("/pull", methods=["POST"])
+async def pull_now(request: Request) -> JSONResponse:
+    r = _git("pull", "--rebase", "origin", BRANCH)
+    schedule_sync(delay=1.0)
+    return JSONResponse(
+        {
+            "ok": r.returncode == 0,
+            "output": (r.stdout + r.stderr).strip()[-500:],
+            "files": sorted(str(p.relative_to(STORAGE)) for p in STORAGE.rglob("*") if p.is_file()),
+        }
+    )
 
 
 @mcp.custom_route("/download/all", methods=["GET"])

@@ -20,10 +20,13 @@ unzip /sdcard/Download/build-studio-files.zip -d /sdcard/Download/build-studio/
 curl -L "https://raw.githubusercontent.com/ranumeena133-hue/Build-studio-/arena/01a07dfe-build-studio/storage/demo.md" -o /sdcard/Download/demo.md
 
 ── 4. PHONE SE UPLOAD (files server par bhejna) 📤 ──
-Phone ke BROWSER me ye link kholo:
-https://8000-i6lumd5n09qpyftoibzuf.e2b.app
-→ File pick karo → upload! Upload hote hi wo GitHub
-  repo me bhi sync ho jayegi (sabko download milegi).
+SABSE PAKKA TARIKA (GitHub web se):
+1. Phone browser me kholo:
+   https://github.com/ranumeena133-hue/Build-studio-/upload/arena/01a07dfe-build-studio/storage
+2. "Choose your files" → apni file chuno
+3. "Commit changes" dabao
+4. Mujhe chat me bolo "pull karo" — main server le lunga!
+   (uske baad wo getfiles se sabko milegi bhi)
 
 ── 5. File list dekhna ho to (browser me) ──────────
 https://github.com/ranumeena133-hue/Build-studio-/tree/arena/01a07dfe-build-studio/storage
