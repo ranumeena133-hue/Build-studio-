@@ -3,6 +3,12 @@
   (ye file hamesha fresh links ke saath update hoti hai)
 ================================================
 
+── 0. SABSE AASAAN TARIKA (ek baar setup, phir sirf "getfiles") ──
+EK BAAR ye chalao:
+curl -sL "https://raw.githubusercontent.com/ranumeena133-hue/Build-studio-/arena/01a07dfe-build-studio/termux-setup.sh" | bash
+Uske baad HAMESHA bas ye type karo:
+getfiles
+
 ── 1. Saari files ek ZIP me ────────────────────────
 curl -L "https://raw.githubusercontent.com/ranumeena133-hue/Build-studio-/arena/01a07dfe-build-studio/build-studio-files.zip" -o /sdcard/Download/build-studio-files.zip
 
