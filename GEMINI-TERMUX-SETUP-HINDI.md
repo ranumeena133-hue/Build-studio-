@@ -468,6 +468,8 @@ node ~/mcp-server.js
 
 Server ka code repo me `mcp-server.js` naam se daal do (ya yahin chat me paste kar do) — main use yahan chala kar read/write ka full test karke report de dunga!
 
+> ✅ **Test ho chuka example:** is repo me `mcp-server.js` (original) aur `mcp-server-fixed.js` (security fix + tested) dono hain. Apne Termux me **fixed wali** use karo — usme path-traversal chhed band hai, notification fix hai aur crash-proofing hai. Sirf `ROOT_DIR` me apna folder path rakho!
+
 ---
 
 ## ⚡ Cheat-sheet — ek nazar me
