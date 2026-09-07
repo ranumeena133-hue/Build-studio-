@@ -353,6 +353,123 @@ aider --model openrouter/WAHAN-SE-COPIED-MODEL-ID
 
 ---
 
+## 🔌 Apna MCP Server Agent se Jodo (Gemini CLI + MCP)
+
+Tumne MCP server bana liya — ab use **agent se jodna** hai. Rule yaad rakho: **server = taala 🔒, agent = chaabi 🔑**. Dono same phone (Termux) me chalenge, tab AI tumhare server ke through file read/write karega.
+
+### Step A — Apna server test karo (Termux me)
+
+Pehle dekho server akela chalta hai ya nahi (apni file ka naam lagao):
+
+```bash
+node ~/mcp-server.js
+```
+
+- Koi error na aaye (bas ruk jaye / log dikhe) = sahi hai. `Ctrl+C` se band karo.
+- Error aaye to pehle wahi theek karo — bina chalte server ke agent nahi judega.
+
+Deep test (server jawab deta hai ya nahi):
+
+```bash
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | node ~/mcp-server.js
+```
+
+JSON jawab aaya = server ekdum sahi ✅
+
+### Step B — Gemini CLI ko server se jodo
+
+Settings file banao/kholo:
+
+```bash
+mkdir -p ~/.gemini
+nano ~/.gemini/settings.json
+```
+
+Ye paste karo (**path apne hisaab se badalna** — apna path dekhne ke liye `pwd` aur `ls` chalao):
+
+```json
+{
+  "mcpServers": {
+    "mera-server": {
+      "command": "node",
+      "args": ["/data/data/com.termux/files/home/mcp-server.js"],
+      "cwd": "/data/data/com.termux/files/home/storage/shared/my-project",
+      "timeout": 30000
+    }
+  }
+}
+```
+
+> ⚠️ `~` mat likho — **poora path** likho (`/data/data/com.termux/files/home/...`). Save: `Ctrl+O`, Enter, `Ctrl+X`.
+
+### Step C — Test karo
+
+```bash
+cd ~/storage/shared/my-project
+gemini
+```
+
+1. `/tools` likho → tumhare server ke tools dikhne chahiye (jaise `read_file`, `write_file` — jo naam tumne rakhe).
+2. Ye bolo:
+
+```
+MCP server ke tool se mere folder ki files ki list dikhao
+```
+
+```
+MCP se index.html padh kar uski pehli 5 line batao
+```
+
+3. Phir write test:
+
+```
+MCP se hello.txt banao aur usme mera naam likho
+```
+
+Bahar nikal kar check: `cat hello.txt` — naam dikha = **MCP read+write dono chal rahe!** 🎉
+
+### Step D — Agar tumhara server HTTP wala hai
+
+```bash
+node ~/mcp-server.js
+```
+
+- Port note karo (jaise 3000). Ye Termux me **chalta rehne do** (naya session kholo: Termux me left-swipe → New Session).
+- Settings me ye lagao:
+
+```json
+{
+  "mcpServers": {
+    "mera-server": {
+      "httpUrl": "http://localhost:3000/mcp"
+    }
+  }
+}
+```
+
+> Port apna lagao. Phir Step C jaisa test karo.
+
+### 🆘 MCP jude nahi? Ilaaj
+
+| Dikkat | Ilaaj |
+|---|---|
+| `/tools` me server ke tools nahi dikh rahe | `settings.json` me comma/brace check karo; server ka path 100% sahi likho; `gemini` restart karo |
+| `MCP server failed to start` | Step A me server akela chalao — jo error aaye wahi asli dikkat hai |
+| `node: command not found` | `pkg install nodejs-lts -y` |
+| HTTP wala connect nahi ho raha | Server wala session chal raha hai na? Port sahi hai? `httpUrl` me `/mcp` laga hai? |
+| Tool chalta hai par file nahi milti | `cwd` me sahi folder ka poora path likho |
+
+### 🔒 Security — bahut zaroori!
+
+- MCP server ko **kabhi public tunnel (ngrok/pinggy/link) par mat kholo** — koi bhi duniya me tumhari file padh/mita sakta hai!
+- Sirf **localhost + apne agent** se use karo. Bas.
+
+### 🧪 Mujhse (chat wale AI) server test karwana ho?
+
+Server ka code repo me `mcp-server.js` naam se daal do (ya yahin chat me paste kar do) — main use yahan chala kar read/write ka full test karke report de dunga!
+
+---
+
 ## ⚡ Cheat-sheet — ek nazar me
 
 ```bash
