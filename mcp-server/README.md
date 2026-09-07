@@ -36,6 +36,18 @@ curl -L "https://github.com/ranumeena133-hue/Build-studio-/archive/refs/heads/ar
 
 ---
 
+## 📤 Phone se UPLOAD karna (files server par bhejna)
+
+**Phone ke browser me ye kholo:** https://8000-i6lumd5n09qpyftoibzuf.e2b.app
+
+- File pick / drag karo → upload!
+- Upload hote hi file **GitHub repo me auto-sync** ho jayegi (sabko milegi)
+- Wahi page se **delete** bhi kar sakte ho 🗑️
+
+(Termux/curl se bhi upload ho sakta hai: `curl --data-binary @file.txt "https://8000-....e2b.app/upload/file.txt?token=..."` — par yaad rahe, ye e2b URL curl se block hai; browser hi use karo.)
+
+---
+
 ## 🛠️ MCP Tools (8 tools)
 
 | Tool | Kaam |
