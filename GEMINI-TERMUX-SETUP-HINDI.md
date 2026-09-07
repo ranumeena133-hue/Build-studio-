@@ -261,6 +261,98 @@ Kaam karo → `/quit` se niklo. Bas!
 
 ---
 
+## 🆓 Dusre FREE AI Tools — DeepSeek (coding ka raja 👑)
+
+Gemini ke alawa **2 aur bilkul free raste** hain. Dono me AI ko direct folder access milta hai, dono me **koi card nahi** lagta:
+
+| Tool | Free me kya milta | Coding quality | Key/Card |
+|---|---|---|---|
+| **Gemini Flash** (upar wala) | roz ~250-1000 requests, permanent free | Good 👍 | Free key, no card |
+| **DeepSeek** (official) | **5 million tokens free**, 30 din tak | Excellent 🏆 | Free key, no card |
+| **OpenRouter free** | roz **50 requests**, `:free` models | Model par depend | Free key, no card |
+
+### 🏆 Tarika 1 — DeepSeek + Aider (RECOMMENDED for coding)
+
+DeepSeek coding me duniya me top par hai, aur naye account par **5M tokens free** milte hain (koi card nahi) [1](https://costgoat.com/pricing/deepseek-api). Aider ek terminal agent hai jo DeepSeek se chalta hai aur **khud git commit bhi karta hai** (atomic built-in!).
+
+**Step A — Aider install karo (ek baar):**
+
+```bash
+pkg install python git -y
+pip install aider-chat
+```
+
+```bash
+aider --version
+```
+
+Version dikha = ho gaya ✅
+
+**Step B — DeepSeek free key banao (2 minute):**
+1. Browser me kholo: **https://platform.deepseek.com**
+2. Email se **Sign Up** karo → login karo.
+3. **API Keys** me jao → **Create** dabao → key copy kar lo. (5M free tokens account me khud jud jate hain, 30 din ke liye.)
+4. Termux me save karo:
+
+```bash
+echo 'export DEEPSEEK_API_KEY="YAHAN-APNI-KEY-PASTE-KARO"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+**Step C — Folder ka access do + chalao:**
+
+```bash
+cd ~/storage/shared/my-project
+aider --model deepseek/deepseek-chat
+```
+
+- Pehli baar puchega to **Yes** karo.
+- 🎉 **Ab DeepSeek ke paas tumhare folder ka direct access hai!** Hindi me bolo, wo khud file banayega/edit karega.
+
+**Aider me kaam ke commands:**
+
+| Likhna hai | Matlab |
+|---|---|
+| `/add index.html` | is file par kaam karo (AI ko do) |
+| `/diff` | AI ne kya badla, dekho |
+| `/undo` | aakhri badlav wapas lo |
+| `/commit` | kaam pakka save karo |
+| `/help` | saare commands |
+| `Ctrl+C` | bahar niklo |
+
+> 💡 Aider **khud git commit karta hai** — matlab har badlav ka safe-point auto banta hai. Isse zyada atomic kya hoga!
+
+**DeepSeek se baat (phone app, bina key):** Sirf chat karni ho (bina folder access) to **DeepSeek app** (Play Store) bilkul free hai, file upload ke saath — wahi copy-paste wala loop chalega.
+
+### 🎁 Tarika 2 — OpenRouter FREE models (roz 50 requests, bina card)
+
+OpenRouter par bahut saare `:free` models milte hain (DeepSeek, Qwen, Gemma jaise — lineup badalti rehti hai). Naye account par **roz 50 requests free, koi card nahi** [2](https://ask-coreai.com/blog/openrouter-free-models-2026-limits-catches).
+
+**Step A — Free key + free model chuno:**
+1. Browser me kholo: **https://openrouter.ai** → email/GitHub se signup (card nahi mangta).
+2. **Keys** page → key banao → copy karo.
+3. **Models** page kholo → **free filter** lagao → jo free model pasand aaye uska **ID copy** karo (jaise `deepseek/deepseek-v3.2:free` — naam badalte rehte hain, wahan se taaza copy karna).
+
+**Step B — Termux me chalao:**
+
+```bash
+echo 'export OPENROUTER_API_KEY="YAHAN-APNI-KEY-PASTE-KARO"' >> ~/.bashrc
+source ~/.bashrc
+cd ~/storage/shared/my-project
+aider --model openrouter/WAHAN-SE-COPIED-MODEL-ID
+```
+
+> ⚠️ 50/roz wali limit me **fail hue request bhi gine jate hain**, to soch-samajh kar bhejo. Quota khatm = agle din reset.
+
+### 🤔 Kaunsa chunu? (seedhi salah)
+
+- **Roz thoda-thoda, permanent free** → Gemini Flash (upar wala main tarika)
+- **Coding ka best result, 30 din tak free** → DeepSeek 🏆
+- **Model badal-badal kar experiment** → OpenRouter free
+- 30 din baad DeepSeek khatm ho to tension nahi — DeepSeek paid bhi duniya ka sabse sasta hai, ya Gemini free par wapas aa jao.
+
+---
+
 ## ⚡ Cheat-sheet — ek nazar me
 
 ```bash
@@ -277,6 +369,19 @@ mkdir -p ~/storage/shared/my-project
 # ==== ROZ ====
 cd ~/storage/shared/my-project
 gemini
+
+# ==== DEEPSeek (coding best) ====
+pip install aider-chat
+echo 'export DEEPSEEK_API_KEY="APNI-FREE-KEY"' >> ~/.bashrc
+source ~/.bashrc
+cd ~/storage/shared/my-project
+aider --model deepseek/deepseek-chat
+
+# ==== OPENROUTER FREE (roz 50) ====
+echo 'export OPENROUTER_API_KEY="APNI-FREE-KEY"' >> ~/.bashrc
+source ~/.bashrc
+cd ~/storage/shared/my-project
+aider --model openrouter/FREE-MODEL-ID-YAHAN
 ```
 
 ---
