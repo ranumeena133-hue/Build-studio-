@@ -84,7 +84,7 @@ def _do_sync() -> None:
             for p in sorted(STORAGE.rglob("*")):
                 if p.is_file():
                     z.write(p, arcname=str(p.relative_to(REPO_ROOT)))
-        _git("pull", "--rebase", "origin", BRANCH)
+        _git("pull", "--rebase", "--autostash", "origin", BRANCH)
         _git("add", "-A")
         c = _git("commit", "-m", f"auto-sync: storage update {datetime.now():%Y-%m-%d %H:%M}")
         if c.returncode == 0 and "nothing to commit" not in c.stdout:
@@ -264,7 +264,7 @@ def list_files(subdir: str = ".") -> str:
 def pull_github() -> str:
     """Pull latest files from the GitHub repo into the server (files uploaded via GitHub web UI will appear here)."""
     try:
-        r = _git("pull", "--rebase", "origin", BRANCH)
+        r = _git("pull", "--rebase", "--autostash", "origin", BRANCH)
         out = (r.stdout + r.stderr).strip()
         schedule_sync(delay=1.0)
         files = "\n".join(f"  - {p.relative_to(STORAGE)}" for p in sorted(STORAGE.rglob('*')) if p.is_file())
@@ -427,7 +427,7 @@ async def sync_now(request: Request) -> JSONResponse:
 
 @mcp.custom_route("/pull", methods=["POST"])
 async def pull_now(request: Request) -> JSONResponse:
-    r = _git("pull", "--rebase", "origin", BRANCH)
+    r = _git("pull", "--rebase", "--autostash", "origin", BRANCH)
     schedule_sync(delay=1.0)
     return JSONResponse(
         {
