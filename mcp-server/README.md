@@ -3,59 +3,35 @@
 Ye MCP server **sandbox ke andar** hi chalta hai aur files ka poora management deta hai:
 **banao ✍️ · padho 👀 · edit karo 🔧 · delete karo 🗑️ · move karo 📂 · list karo 📋**
 
-Saari files `storage/` folder me rehti hain. Har file ka **Termux download command** bhi milta hai.
+Saari files `storage/` folder me rehti hain.
 
 ---
 
-## 🔌 Server details
+## 📱 Termux se download karna (GitHub raw links — sabse reliable!)
 
-| Cheez | Value |
-|---|---|
-| MCP endpoint (Streamable HTTP) | `https://8000-i6lumd5n09qpyftoibzuf.e2b.app/mcp` |
-| Token | `9rV6SEVUWJO9wd9_MMUAGb0n` |
-| Health check | `https://8000-i6lumd5n09qpyftoibzuf.e2b.app/health` |
+Files har change ke baad is repo me push hoti hain, isliye ye links **phone se direct** kaam karte hain:
 
-> 🔒 Har request me token chahiye — query me `?token=...` ya header `X-Token: ...`
-
----
-
-## 📱 Termux se file download karna (sabse main cheez!)
-
-**Pehli baar ye chalao** (storage permission + curl):
-
+**Pehli baar (Termux me):**
 ```bash
 termux-setup-storage
 pkg install -y curl
 ```
 
-**Saari files ek saath (ZIP) phone me:**
-
+**Koi ek file (jaise demo.md):**
 ```bash
-curl -L "https://8000-i6lumd5n09qpyftoibzuf.e2b.app/download/all?token=9rV6SEVUWJO9wd9_MMUAGb0n" -o /sdcard/Download/build-studio.zip
+curl -L "https://raw.githubusercontent.com/ranumeena133-hue/Build-studio-/arena/01a07dfe-build-studio/storage/demo.md" -o /sdcard/Download/demo.md
 ```
 
-**Koi ek file phone me:**
-
+**Saari files ek ZIP me:**
 ```bash
-curl -L "https://8000-i6lumd5n09qpyftoibzuf.e2b.app/files/hello.txt?token=9rV6SEVUWJO9wd9_MMUAGb0n" -o /sdcard/Download/hello.txt
+curl -L "https://raw.githubusercontent.com/ranumeena133-hue/Build-studio-/arena/01a07dfe-build-studio/build-studio-files.zip" -o /sdcard/Download/build-studio-files.zip
 ```
 
-**Phone se server par upload:**
+> ZIP ko extract karne ke liye: `pkg install -y unzip && unzip build-studio-files.zip -d /sdcard/Download/build-studio/`
 
+**Poora repo hi chahiye to (code + files sab):**
 ```bash
-curl --data-binary @merifile.txt "https://8000-i6lumd5n09qpyftoibzuf.e2b.app/upload/merifile.txt?token=9rV6SEVUWJO9wd9_MMUAGb0n"
-```
-
-**File delete:**
-
-```bash
-curl -X DELETE "https://8000-i6lumd5n09qpyftoibzuf.e2b.app/files/purani.txt?token=9rV6SEVUWJO9wd9_MMUAGb0n"
-```
-
-**File list (JSON):**
-
-```bash
-curl -s "https://8000-i6lumd5n09qpyftoibzuf.e2b.app/list?token=9rV6SEVUWJO9wd9_MMUAGb0n"
+curl -L "https://github.com/ranumeena133-hue/Build-studio-/archive/refs/heads/arena/01a07dfe-build-studio.zip" -o /sdcard/Download/build-studio-repo.zip
 ```
 
 ---
@@ -71,22 +47,22 @@ curl -s "https://8000-i6lumd5n09qpyftoibzuf.e2b.app/list?token=9rV6SEVUWJO9wd9_M
 | `delete_file(path, recursive)` | File ya folder delete karo |
 | `move_file(src, dst)` | Move / rename |
 | `list_files(subdir)` | Saari files list karo |
-| `download_link(path)` | Ready-made Termux curl command |
+| `download_link(path)` | Ready-made download command |
 
 ---
 
-## 🔗 Kisi bhi MCP client me jodna (Claude Desktop, Cursor, etc.)
+## 🔌 Server details (sandbox/preview ke andar ke liye)
 
-```json
-{
-  "mcpServers": {
-    "build-studio": {
-      "url": "https://8000-i6lumd5n09qpyftoibzuf.e2b.app/mcp",
-      "headers": { "X-Token": "9rV6SEVUWJO9wd9_MMUAGb0n" }
-    }
-  }
-}
-```
+| Cheez | Value |
+|---|---|
+| MCP endpoint (Streamable HTTP) | `https://8000-i6lumd5n09qpyftoibzuf.e2b.app/mcp` |
+| Token | (env `MCP_TOKEN` me hai — chat me diya gaya hai) |
+| Health check | `https://8000-i6lumd5n09qpyftoibzuf.e2b.app/health` |
+
+> ⚠️ Ye e2b URL **browser preview** ke liye hai — curl/Termux se is par request karo ge to
+> preview-gate ka chhota error (86 bytes) milega. Termux ke liye upar wale **GitHub raw links** use karo.
+>
+> 🔒 Har request me token chahiye — query me `?token=...` ya header `X-Token: ...`
 
 ---
 
@@ -94,9 +70,7 @@ curl -s "https://8000-i6lumd5n09qpyftoibzuf.e2b.app/list?token=9rV6SEVUWJO9wd9_M
 
 ```bash
 cd /home/user/Build-studio-
-MCP_TOKEN=9rV6SEVUWJO9wd9_MMUAGb0n \
-PUBLIC_BASE=https://8000-i6lumd5n09qpyftoibzuf.e2b.app \
-python3 mcp-server/server.py
+MCP_TOKEN=<token> PUBLIC_BASE=https://8000-i6lumd5n09qpyftoibzuf.e2b.app python3 mcp-server/server.py
 ```
 
-Server `0.0.0.0:8000` par sunta hai. Token `MCP_TOKEN` env se badal sakte ho.
+Server `0.0.0.0:8000` par sunta hai. Token `MCP_TOKEN` env se set hota hai.

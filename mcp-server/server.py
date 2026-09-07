@@ -357,4 +357,4 @@ if __name__ == "__main__":
     print(f"* Storage       : {STORAGE}")
     print(f"* MCP endpoint  : {BASE_URL}/mcp")
     print(f"* Health check  : {BASE_URL}/health")
-    uvicorn.run(app, host="0.0.0.0", port=PORT, log_level="warning")
+    uvicorn.run(app, host="0.0.0.0", port=PORT, log_level=os.environ.get("LOG_LEVEL", "info"))
