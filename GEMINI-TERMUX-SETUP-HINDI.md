@@ -1,281 +1,247 @@
-# 💬 Gemini se DIRECT Baat karke File ka Kaam — Bina API, Mobile se (Hindi Guide)
+# 🤖 AI ko DIRECT Local Folder ka Access — Mobile + Termux (₹0, Bina Card) — Hindi Guide
 
-> No API. No key. No paisa. Bas **Gemini app + Termux** — tum file dikhaoge, AI code dega, tum paste karoge. Sabse saral tarika!
-
----
-
-## 🧠 Pehle 30 second me samjho
-
-Direct baat wale tarike me flow bas itna hai:
-
-```
-📁 Tumhari file → 📋 Copy → 💬 Gemini app me paste + bolo "edit kar do"
-       → 🤖 AI naya code dega → 📋 Copy → 📁 File me paste (kaam ho gaya!)
-```
-
-- ✅ **Fayda:** Koi API key nahi, koi setup jhanjhat nahi, bilkul free.
-- ⚠️ **Ek sach:** Direct chat me AI **khud tumhari file nahi badal sakta** — copy-paste tumhe karna padega. Lekin neeche wale **clipboard trick** se ye 10 second ka kaam hai.
-- 🛡️ **Atomic/safe** bhi rahega — Step 5 wala git tarika use karo, bigde to ek command me wapas.
+> AI **khud** tumhare folder me ghusega — file padhega, banayega, edit karega, replace karega. Tum bas Hindi me bologe. Aur kharcha? **₹0 — free key, bina credit card.**
 
 ---
 
-## 📦 Tumhe kya-kya chahiye (3 apps, sab free)
+## 🧠 Pehle 2 sach samjho (jhoothi ummeed nahi dunga)
 
-| App | Kahan se | Kyun |
-|---|---|---|
-| **Google Gemini** | Play Store | AI se direct baat karne ke liye |
-| **Termux** | ⚠️ **F-Droid** se (Play Store wala mat lena) | Folder + file sambhalne ke liye |
-| **Termux:API** | F-Droid se | File ko 1 command me copy karne ke liye (clipboard trick) |
+1. **Bina key/login ke direct access namumkin hai.** Jo agent tumhare folder me kaam karega, use AI se baat karne ke liye *kuch to* chahiye. Gemini app (chat wali) tumhare folder ko khud nahi ched sakti — wo sirf baat karti hai.
+2. **"API key" ka matlab PAISA nahi!** Google ki **FREE key** abhi bhi milti hai — bina card, bina billing, roz sekdon free requests (Flash models par). Bas **billing OFF** rakhna hai, paise kabhi nahi lagega.
 
-F-Droid: mobile browser me kholo **https://f-droid.org** → F-Droid install karo → usme "Termux" aur "Termux:API" search karke install karo.
+> To hamara plan: **Termux me AI agent + Google ki FREE key (₹0)** = AI ko tumhare local folder ka poora access. Yehi ek asli tarika hai. Chal shuru karte hain! 🚀
 
 ---
 
-## Step 0️⃣ — Termux me 2 cheez install karo (ek baar)
+## 📦 Kya-kya chahiye (sab free)
 
-Termux kholo, ye commands ek-ek karke paste karo (paste = Termux me ungli dabaye rakho → **PASTE**):
+| Cheez | Kahan se |
+|---|---|
+| Android mobile + net | tumhara phone |
+| **Termux (F-Droid wala)** | ⚠️ Play Store wala **mat** lena — https://f-droid.org se lo |
+| Google account | free key banane ke liye |
+| ~500 MB jagah | Node.js + agent ke liye |
+
+---
+
+## Step 1️⃣ — Termux taiyaar karo
+
+Termux kholo, ye ek-ek karke paste karo (paste = ungli dabaye rakho → **PASTE**):
 
 ```bash
 pkg update && pkg upgrade -y
 ```
 
 ```bash
-pkg install git zip unzip termux-api -y
+pkg install nodejs-lts git -y
 ```
 
-Bas! Setup khatam. 🎉
+Check karo:
+
+```bash
+node -v
+```
+
+`v20` ya upar (jaise `v22.x`) aana chahiye. ✅
 
 ---
 
-## Step 1️⃣ — Apna kaam wala folder banao (ek baar)
+## Step 2️⃣ — AI agent install karo (Termux wala, easy)
+
+```bash
+npm install -g @mmmbuto/gemini-cli-termux
+```
+
+```bash
+gemini --version
+```
+
+Version number dikha = ho gaya 🎉
+
+> Ye khaas **Termux/Android ke liye bana** Gemini agent hai — normal wale me mobile par error aata hai, isme nahi. (Agar ye na chale to backup: `npm install -g @google/gemini-cli --ignore-scripts`)
+
+---
+
+## Step 3️⃣ — FREE key banao (₹0, bina card) ⭐
+
+**3a. Browser me key banao (2 minute):**
+1. Mobile browser me kholo: **https://aistudio.google.com/apikey**
+2. Google login karo → **Create API Key** dabao → key copy kar lo.
+3. ⚠️ **Billing/card KABHI mat jodo is project me!** Card jodte hi free quota **khatm** ho jata hai. Billing OFF = free forever.
+
+**3b. Key + FREE model Termux me save karo:**
+
+```bash
+echo 'export GEMINI_API_KEY="YAHAN-APNI-KEY-PASTE-KARO"' >> ~/.bashrc
+echo 'export GEMINI_MODEL="gemini-2.5-flash"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+> - `YAHAN-APNI-KEY-PASTE-KARO` ki jagah asli key paste karna.
+> - **`GEMINI_MODEL` wali line sabse zaroori hai!** Agent default me Pro model mangta hai (jo paid hai). `gemini-2.5-flash` **free** hai — isliye ye line lagayi. Aur zyada free limit chahiye to `gemini-2.5-flash-lite` likh sakte ho.
+
+Check karo:
+
+```bash
+echo $GEMINI_API_KEY | cut -c1-6
+echo $GEMINI_MODEL
+```
+
+Dono me kuch dikha = perfect ✅
+
+**Free me kitna milega?** (lagbhag, model ke hisaab se roz):
+- `gemini-2.5-flash-lite` → ~1000 request/roz (sabse zyada free)
+- `gemini-2.5-flash` → ~250 request/roz (thoda smart)
+- Apna asli quota yahan dekho: **https://aistudio.google.com** → Usage/Limits
+
+---
+
+## Step 4️⃣ — Folder ka ACCESS do (yehi asli step hai ⭐⭐⭐)
 
 ```bash
 termux-setup-storage
 ```
 
 - Popup aaye → **Allow** dabao.
-- Phir project folder banao:
 
 ```bash
 mkdir -p ~/storage/shared/my-project
 cd ~/storage/shared/my-project
 ```
 
-> Ye folder phone ke **File Manager me bhi dikhega** (`my-project` naam se), to file dekhna easy rahega. Naam kuch bhi rakh sakte ho.
+Ab agent chalao:
+
+```bash
+gemini
+```
+
+- Pehli baar theme puchega → jo marzi chuno.
+- **"Trust this folder?"** → **Yes** karo.
+
+🎉 **HO GAYA BHAI!** Ab AI ke paas tumhare `my-project` folder ka **poora access** hai — ye khud file bana/edit/replace kar sakta hai. Neeche wala box ab tumhara AI mazdoor hai, Hindi me hukam do!
 
 ---
 
-## Step 2️⃣ — File AI ko dikhao (3 easy tarike)
+## Step 5️⃣ — Pehla kaam karwao (access test karo)
 
-### 📎 Tarika A — Gemini app me file attach karo (sabse easy ⭐)
-
-1. **Gemini app** kholo (Play Store wali).
-2. Chat box me **+ ya 📎 (attach)** dabao → **Files** → apni file chuno (`my-project` folder se).
-3. Saath me likho, jaise:
+Ye type karo, Enter dabao:
 
 ```
-is file me heading ka rang laal kar do. poori nayi file code me de do.
+is folder me meri pehli website banao — index.html me mera naam likho
 ```
 
-4. AI naya code dega → **copy** karo.
+AI khud:
+1. File banayega
+2. Puchega **"Allow?"** → Yes karo
+3. Kaam karke dikhayega
 
-### 📋 Tarika B — Clipboard trick (Termux se 1 command me copy)
+**Bahar nikalna ho to:** `/quit` likho (ya `Ctrl+C` do baar).
 
-File kholne ki zaroorat nahi. Termux me jis file ko bhejna hai:
+**Access PROOF dekho** (nikalne ke baad):
 
 ```bash
-cd ~/storage/shared/my-project
-cat index.html | termux-clipboard-set
+ls
+cat index.html
 ```
 
-- Poori file **copy** ho gayi! ✅
-- Ab Gemini app kholo → chat me **paste** karo → saath me likho kya karwana hai → bhejo.
-
-> 💡 `index.html` ki jagah apni file ka naam likho. Ye trick bahut kaam aayegi!
-
-### 📦 Tarika C — Poora project ek saath bhejna ho (zip banao)
-
-Bahut saari files hain to zip banao aur wahi attach kar do:
-
-```bash
-cd ~/storage/shared
-zip -r project.zip my-project
-```
-
-- Ab `project.zip` file Gemini app me **attach** kar do aur bolo:
-
-```
-ye mera poora project hai. isko samajh kar batao isme kya-kya hai, phir mera kaam karna.
-```
+AI ne file bana di = access mil gaya ✅
 
 ---
 
-## Step 3️⃣ — AI se aise bolo (ready-made Hindi prompts)
+## 🗣️ AI se aise hukam do — ready prompts
 
-Copy-paste karke apne hisaab se badal lo:
-
-**✏️ File edit karwana:**
+**📄 Nayi file:**
 ```
-neeche meri file hai. isme heading ka rang laal kar do, baaki kuch mat chedo.
-poori updated file code block me de do.
-[paste your file]
+mere liye style.css banao — dark theme, mobile friendly
 ```
 
-**📄 Nayi file banwana:**
+**✏️ Edit (baaki mat chedna):**
 ```
-mere liye style.css banao — dark theme, mobile friendly.
-poora code ek code block me de do.
-```
-
-**🔁 Puraani file replace karwana:**
-```
-ye meri puraani app.js hai. isko bilkul naye tareeke se likh do jo button
-dabane par photo dikhaye. poori nayi file de do.
-[paste your file]
+index.html padho, sirf heading ka rang laal kar do, baaki kuch mat chedo
 ```
 
-**🔍 Pehle plan, phir code (safe mode ⭐):**
+**🔁 Replace (pehle backup):**
 ```
-pehle batao tum kya-kya badloge, bina code diye. meri haan ke baad hi poora code dena.
+app.js ka backup app.js.bak me banao, phir usko naye se likh do jo button dabane par photo dikhaye
 ```
 
-**🐞 Error theek karwana:**
+**🔍 Safe mode (pehle plan):**
 ```
-ye error aa raha hai: [yahan error paste karo]
-ye meri file hai: [yahan file paste karo]
-galti dhoondh kar theek ki hui poori file de do.
+pehle batao kya-kya badloge bina change kiye. meri haan ke baad hi file chedna.
+```
+
+**🐞 Error fix:**
+```
+ye error aa raha hai: [error paste karo]. file padh kar khud theek kar do.
 ```
 
 **📦 Poora project samajhna:**
 ```
-maine apna poora project zip me bheja hai. pehle 5 line me batao ye kya karta hai.
-```
-
-> 🏆 **Golden tip:** Hamesha bolo **"poori file de do"** — warna AI kabhi-kabhi aadhi file deta hai aur paste karne me gadbad hoti hai.
-
----
-
-## Step 4️⃣ — AI ka jawab wapas file me daalo (2 tarike)
-
-### 📋 Tarika A — Clipboard se (1 command ⭐)
-
-1. Gemini app me AI ke code par **copy** dabao (poora code copy karo).
-2. Termux kholo, ye chalao:
-
-```bash
-cd ~/storage/shared/my-project
-termux-clipboard-get > index.html
-```
-
-- Ho gaya! AI wala code `index.html` me save ho gaya ✅
-- Check karo: `cat index.html`
-
-> ⚠️ `>` ka matlab **purani file poori replace**. Pehle Step 5 ka backup/git kar lena!
-
-### ✍️ Tarika B — Haath se paste (file chhoti ho to)
-
-1. File Manager se file kholo (ya Termux me `nano index.html`).
-2. Purana code hatao → AI wala paste karo → save.
-
-### 📦 Zip wala project wapas lana ho to
-
-Agar AI ne poora project diya aur tumne phone me download kiya:
-
-```bash
-cd ~/storage/shared
-unzip -o project-new.zip -d my-project
+is folder ki saari files padh kar 5 line me batao ye project kya karta hai
 ```
 
 ---
 
-## Step 5️⃣ — Atomic / Safe kaam (bigde to wapas lao 🛡️)
+## Step 6️⃣ — Atomic / Safe (bigde to wapas 🛡️)
 
-Bhai tumne **atomic** bola tha — ye uska dil hai. **Paste karne SE PEHLE** ye karo:
-
-### 🥇 Git wala tarika (BEST)
-
-Folder me **ek baar** ye karo:
+**Folder me ek baar ye karo:**
 
 ```bash
 cd ~/storage/shared/my-project
 git init
 git add .
-git commit -m "sahi wala version"
+git commit -m "shuruat"
 ```
 
-**Roz ka safe flow:**
+**AI se bada kaam karwane se PEHLE, AI ko bolo:**
 
-```bash
-# 1. AI ka code paste karne SE PEHLE — abhi ka sahi version pakka karo
-git add . && git commit -m "AI se pehle wala"
-
-# 2. AI ka code file me paste karo (Step 4)
-
-# 3. Dekho AI ne kya-kya badla
-git diff
-
-# 4a. Pasand aaya? Pakka save karo ✅
-git add . && git commit -m "AI wala change sahi hai"
-
-# 4b. Bigad gaya? Ek command me sab WAPAS ❌
-git checkout .
+```
+pehle git status dekho, phir kaam karo. kaam ke baad kya badla wo batao.
 ```
 
-| Command | Matlab |
-|---|---|
-| `git add . && git commit -m "..."` | abhi ka version pakka save (safe point) |
-| `git diff` | AI ne file me kya-kya badla, dekho |
-| `git checkout .` | sab kuch pehle jaisa karo (powerful undo) |
-
-### 🥈 Bina git — super simple backup
-
-Paste karne se pehle:
+**Agar AI ne kuch bigad diya** (agent band karke ya naye session me):
 
 ```bash
-cp index.html index.html.bak
-```
-
-Bigad jaye to:
-
-```bash
-cp index.html.bak index.html
-```
-
----
-
-## 🌐 BONUS — Badi files / poora project ho to (AI Studio, free)
-
-Gemini app me bahut badi file na jaye to **browser** wala free tarika:
-
-1. Mobile browser (Chrome) me kholo: **https://aistudio.google.com**
-2. Google login karo → **"Create new" / chat** shuru karo.
-3. **+ → Upload files** se file ya zip upload karo (bahut bada context free me milta hai).
-4. Baat karo, code lo, wapas Termux me paste karo (Step 4).
-
-> 💡 AI Studio ka **chat bilkul free** hai — paise wali sirf API key hoti hai, jo hume chahiye hi nahi!
-
----
-
-## 🚀 Roz ka routine (bas itna!)
-
-```bash
-# Termux kholo
 cd ~/storage/shared/my-project
-
-# AI ko file dikhani ho → copy karo
-cat index.html | termux-clipboard-set
-
-# ...Gemini app me paste + baat + code copy...
-
-# AI ka code file me daalne se PEHLE safe point
-git add . && git commit -m "pehle wala"
-
-# AI ka code file me daalo
-termux-clipboard-get > index.html
-
-# check karo kya badla
-git diff
+git diff       # AI ne kya-kya badla, dekho
+git checkout . # ❌ sab WAPAS — ek command me pehle jaisa
 ```
+
+**Kaam pasand aaya to pakka karo:**
+
+```bash
+git add . && git commit -m "sahi hai"
+```
+
+> 💡 Golden rule: **pehle commit, phir AI ka kaam.** Bigde → `git checkout .` Bas, atomic!
+
+---
+
+## ⚙️ Baar-baar "Allow?" se tang ho? (Auto mode)
+
+Shuruat me manual **Allow** hi rakho (safe). Jab bharosa ho jaye, tab agent aise chalao:
+
+```bash
+gemini --yolo
+```
+
+- `--yolo` = AI bina puche kaam karega. Fast, lekin **sirf tab jab git safe-point bana rakha ho!**
+
+---
+
+## 🚀 Roz ka routine (2 commands)
+
+```bash
+cd ~/storage/shared/my-project
+gemini
+```
+
+Kaam karo → `/quit` se niklo. Bas!
+
+**Free quota bachane ke 3 fund-e:**
+1. Chhote-chhote kaam do, ek saath poora project mat banwao.
+2. Lambi chat bhari lage to `/quit` karke nayi shuru karo.
+3. Quota khatm ho jaye to `GEMINI_MODEL` ko `gemini-2.5-flash-lite` kar do (sabse zyada free) — ya agle din tak ruko (roz reset hota hai).
 
 ---
 
@@ -283,48 +249,53 @@ git diff
 
 | Dikkat | Ilaaj |
 |---|---|
-| `termux-clipboard-set: command not found` | `pkg install termux-api -y` chalao **aur** Termux:API app (F-Droid) install karo |
-| Clipboard command kuch nahi karta | Termux:API app kholo ek baar, permission do; Termux restart karo |
-| Gemini app me file attach nahi mil rahi | App update karo; ya Tarika B (clipboard) use karo — wo hamesha chalta hai |
-| AI aadhi file de raha hai | Bolo: **"poori file shuru se aakhir tak ek code block me do"** |
-| AI ne code ke saath faltu baatein likhi | Bolo: **"sirf code do, koi samjhayein mat"** — phir copy-paste saaf rahega |
-| File bahut badi, paste nahi ho rahi | Tukdo me bhejo ("pehle aadhi bhej raha hu"), ya zip + AI Studio (bonus wala) use karo |
-| `termux-setup-storage` ke baad folder nahi dikh raha | File Manager me `my-project` search karo; ya `ls ~/storage/shared/` chalao |
-| Paste ke baad file kharab ho gayi | Ghabrao mat: `git checkout .` (ya `.bak` se wapas lao — Step 5) |
-| AI puraana code bhool jata hai | Nayi chat me file **dobara paste** karo — har nayi chat me AI ko file phir se dikhani padti hai |
+| `You need to install Termux for this module` | Termux wala agent install karo: `npm install -g @mmmbuto/gemini-cli-termux` |
+| `gemini: command not found` | Termux band karke kholo; phir bhi na mile to install dobara chalao |
+| `401 / API key not valid` | Key galat paste hui — Step 3b dobara karo, `"` ke andar poori key honi chahiye |
+| `429 / quota exceeded` | Roz ki free limit khatm — Lite model lagao ya kal try karo; AI Studio me quota dekho |
+| Paise katne ka darr | AI Studio project me **billing OFF** rakho, card mat jodo — free me paise NAHI lagte |
+| `node: command not found` | `pkg install nodejs-lts -y` dobara chalao |
+| Storage folder nahi dikh raha | `termux-setup-storage` + Allow; phir `ls ~/storage/shared/` |
+| Lambe kaam me Termux band ho jata hai | Battery setting me Termux = **Unrestricted** karo; kaam tukdo me karwao |
+| AI bevakoofi kar raha hai | Flash model Pro se halka hai — chhote, saaf hukam do; "pehle plan batao" bolo |
 
 ---
 
 ## ⚡ Cheat-sheet — ek nazar me
 
 ```bash
-# ek baar setup
+# ==== PEHLI BAAR ====
 pkg update && pkg upgrade -y
-pkg install git zip unzip termux-api -y
+pkg install nodejs-lts git -y
+npm install -g @mmmbuto/gemini-cli-termux
 termux-setup-storage
+echo 'export GEMINI_API_KEY="APNI-FREE-KEY"' >> ~/.bashrc
+echo 'export GEMINI_MODEL="gemini-2.5-flash"' >> ~/.bashrc
+source ~/.bashrc
 mkdir -p ~/storage/shared/my-project
 
-# roz ka kaam
+# ==== ROZ ====
 cd ~/storage/shared/my-project
-cat MERI-FILE | termux-clipboard-set   # file AI ko dikhao (copy)
-git add . && git commit -m "safe"      # safe point
-termux-clipboard-get > MERI-FILE       # AI ka code file me daalo
-git diff                               # kya badla, dekho
-git checkout .                         # bigde to wapas
+gemini
 ```
 
 ---
 
-## 🔧 Advanced (baad me, jab man kare — API wala)
+## 💬 Bilkul bina-key wala backup (agar key hi nahi banani)
 
-Agar kabhi chaho ki AI **khud** tumhare folder me file banaye/edit kare (bina copy-paste), to uske liye **Gemini CLI + API key** lagti hai (June 2026 se free login band hai). Uska poora setup bata dunga jab bologe — filhal direct baat wala tarika seekh lo, 90% kaam isi se ho jayega!
+Agar tumhe **koi key nahi** chahiye — to AI khud file nahi ched payega, lekin **baat karke** kaam ho jayega:
+
+1. `pkg install termux-api -y` + F-Droid se **Termux:API** app lo.
+2. File AI ko dikhao: `cat index.html | termux-clipboard-set` → Gemini app me paste + bolo.
+3. AI ka code copy karo → `termux-clipboard-get > index.html` → file me save.
+4. Paste se pehle `git commit` (safe), bigde to `git checkout .`
 
 ---
 
-## ✅ Aakhir me — 3 yaad rakhne wali baat
+## ✅ Aakhir me — 3 baat yaad rakho
 
-1. **Copy → baat → paste.** File dikhao, AI se lo, file me daalo. Bas yehi loop hai.
-2. **Paste se pehle safe point.** `git commit` karo, phir AI ka code daalo. Bigde to `git checkout .`
-3. **"Poori file de do" bolna mat bhoolo.** Aadha code = aadhi musibat.
+1. **Jis folder me `gemini` chalaya = AI ka access usi me.** Yahi poora concept hai.
+2. **FREE key = ₹0.** Billing OFF rakho, card mat jodo, free quota roz reset hota hai.
+3. **Pehle `git commit`, phir AI ka kaam.** Bigde to `git checkout .` = sab wapas.
 
-*All the best bhai! 🚀 Koi step atke to uska error ya screenshot yahin bhej dena — turant ilaaj bata dunga.*
+*All the best bhai! 🚀 Access milne ke baad pehla kaam karwa kar mujhe batana kaisa laga — aur koi error aaye to message yahin bhej dena!*
