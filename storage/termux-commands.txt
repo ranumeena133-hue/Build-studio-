@@ -1,0 +1,25 @@
+================================================
+  BUILD STUDIO — TERMUX DOWNLOAD COMMANDS 📱
+  (ye file hamesha fresh links ke saath update hoti hai)
+================================================
+
+── 1. Saari files ek ZIP me ────────────────────────
+curl -L "https://raw.githubusercontent.com/ranumeena133-hue/Build-studio-/arena/01a07dfe-build-studio/build-studio-files.zip" -o /sdcard/Download/build-studio-files.zip
+
+── 2. ZIP extract karna ho to ──────────────────────
+pkg install -y unzip
+unzip /sdcard/Download/build-studio-files.zip -d /sdcard/Download/build-studio/
+
+── 3. Koi ek file (example: demo.md) ───────────────
+curl -L "https://raw.githubusercontent.com/ranumeena133-hue/Build-studio-/arena/01a07dfe-build-studio/storage/demo.md" -o /sdcard/Download/demo.md
+
+── 4. File list dekhna ho to (browser me) ──────────
+https://github.com/ranumeena133-hue/Build-studio-/tree/arena/01a07dfe-build-studio/storage
+
+================================================
+  TARIKA:
+  Mujhe bolo "file banao / edit karo / delete karo"
+  -> main server par karke repo me push kar dunga
+  -> tum upar wali command dobara chala do, bas!
+  Links kabhi nahi badalte. 🔁
+================================================
