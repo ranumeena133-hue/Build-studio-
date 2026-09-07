@@ -7,6 +7,26 @@ Saari files `storage/` folder me rehti hain.
 
 ---
 
+## 🔄 NAYE CHAT/SESSION ME SERVER KAISE START KARE (agents ke liye)
+
+Server process sandbox band hone par mar jaata hai — **files safe rehti hain (GitHub par)**.
+Restart sirf 1 command:
+
+```bash
+# start_process tool se (long-running process), cwd = repo root:
+bash restart-server.sh
+```
+
+- Script khud check karega ki `mcp`/`uvicorn` installed hain, nahi hain to install kar dega
+- Port `8000` par `wait_for: port` se wait karo
+- Verify: `curl -s http://127.0.0.1:8000/health` → `{"ok": true}`
+- User ko batao: **`getfiles` / `sendfile` waise hi chalenge** (GitHub links same hain)
+- `PUBLIC_BASE` env naye sandbox ke hisaab se set kar sakte ho (optional — sirf /list ke URLs ke liye)
+
+**User ko bas itna bolna hai naye chat me:** *"MCP server start karo"*
+
+---
+
 ## 📱 Termux se download karna (GitHub raw links — sabse reliable!)
 
 Files har change ke baad is repo me push hoti hain, isliye ye links **phone se direct** kaam karte hain:
