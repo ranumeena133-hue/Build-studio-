@@ -1,0 +1,45 @@
+================================================
+  BUILD STUDIO — TERMUX DOWNLOAD COMMANDS 📱
+  (ye file hamesha fresh links ke saath update hoti hai)
+================================================
+
+── 0. SABSE AASAAN TARIKA (ek baar setup, phir sirf "getfiles") ──
+EK BAAR ye chalao:
+curl -sL "https://raw.githubusercontent.com/ranumeena133-hue/Build-studio-/arena/01a07dfe-build-studio/termux-setup.sh" | bash
+Uske baad HAMESHA bas ye type karo:
+getfiles
+
+── 1. Saari files ek ZIP me ────────────────────────
+curl -L "https://raw.githubusercontent.com/ranumeena133-hue/Build-studio-/arena/01a07dfe-build-studio/build-studio-files.zip" -o /sdcard/Download/build-studio-files.zip
+
+── 2. ZIP extract karna ho to ──────────────────────
+pkg install -y unzip
+unzip /sdcard/Download/build-studio-files.zip -d /sdcard/Download/build-studio/
+
+── 3. Koi ek file (guide example) ──────────────────
+curl -L "https://raw.githubusercontent.com/ranumeena133-hue/Build-studio-/arena/01a07dfe-build-studio/storage/TERMUX-GUIDE.md" -o /sdcard/Download/TERMUX-GUIDE.md
+
+── 4. PHONE SE UPLOAD — 2 tarike 📤 ────────────────
+TARIKA A (Termux se, best):
+  Pehli baar setup:
+    pkg install -y gh
+    gh auth login        (browser khulega, login karo)
+  Phir hamesha:
+    sendfile merifile.pdf
+    (subfolder me bhejna ho: sendfile merifile.pdf pics)
+  Uske baad chat me bolo "pull karo" — done!
+
+TARIKA B (phone browser se):
+  https://github.com/ranumeena133-hue/Build-studio-/upload/arena/01a07dfe-build-studio/storage
+  → Choose your files → Commit changes → "pull karo" bolo
+
+── 5. File list dekhna ho to (browser me) ──────────
+https://github.com/ranumeena133-hue/Build-studio-/tree/arena/01a07dfe-build-studio/storage
+
+================================================
+  TARIKA:
+  Mujhe bolo "file banao / edit karo / delete karo"
+  -> main server par karke repo me push kar dunga
+  -> tum upar wali command dobara chala do, bas!
+  Links kabhi nahi badalte. 🔁
+================================================
