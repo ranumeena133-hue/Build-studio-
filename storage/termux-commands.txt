@@ -16,8 +16,8 @@ curl -L "https://raw.githubusercontent.com/ranumeena133-hue/Build-studio-/arena/
 pkg install -y unzip
 unzip /sdcard/Download/build-studio-files.zip -d /sdcard/Download/build-studio/
 
-── 3. Koi ek file (example: demo.md) ───────────────
-curl -L "https://raw.githubusercontent.com/ranumeena133-hue/Build-studio-/arena/01a07dfe-build-studio/storage/demo.md" -o /sdcard/Download/demo.md
+── 3. Koi ek file (guide example) ──────────────────
+curl -L "https://raw.githubusercontent.com/ranumeena133-hue/Build-studio-/arena/01a07dfe-build-studio/storage/TERMUX-GUIDE.md" -o /sdcard/Download/TERMUX-GUIDE.md
 
 ── 4. PHONE SE UPLOAD — 2 tarike 📤 ────────────────
 TARIKA A (Termux se, best):
