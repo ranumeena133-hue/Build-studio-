@@ -203,12 +203,17 @@ def phone_path(raw) -> Path:
         return Path(s).expanduser()
     if s.startswith("/"):
         return Path(s)
-    low = s.lstrip("./")
-    for pre in ("shared/", "sdcard/", "storage/emulated/0/"):
+    low = s[2:] if s.startswith("./") else s
+    for pre in ("shared/", "/shared/", "sdcard/", "/sdcard/", "storage/emulated/0/", "/storage/emulated/0/"):
         if low.startswith(pre):
             low = low[len(pre):]
             break
-    return (shared() / low).resolve() if not low else shared()
+    parts = [x for x in low.split("/") if x not in ("", ".")]
+    if not parts:
+        return shared()
+    if ".." in parts:                      # no path-traversal out of shared storage
+        raise ValueError("relative path me '..' allowed nahi - shared storage ke andar rakhao")
+    return shared().joinpath(*parts)
 
 
 def repo_sub(name: str) -> Path:
@@ -576,7 +581,11 @@ def apply_step(rep: R, op: dict) -> None:
         return
 
     # ---- per-target file ops ----
-    targets, truncated = _target_files(op)
+    try:
+        targets, truncated = _target_files(op)
+    except ValueError as e:
+        rep.add("err", kind, f"bad path: {e}")
+        return
     if not targets:
         rep.add("warn", f"{kind}", "koi file match nahi hui")
         return
