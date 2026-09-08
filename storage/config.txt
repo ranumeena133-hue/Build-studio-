@@ -1,0 +1,5 @@
+a=1
+old=keep me
+b=2
+# edited-by-agent at 19:44
+NEW_FLAG=on
