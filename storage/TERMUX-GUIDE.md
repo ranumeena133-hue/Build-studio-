@@ -115,7 +115,7 @@ notes
 termux-commands.txt
 ```
 
-📁 Phone me path: **Internal Storage → Download → build-studio → storage**
+📁 Phone me path: **Internal Storage → Download → build-studio**
 
 ---
 
@@ -224,7 +224,7 @@ sendfile file.pdf                 # 📤 file server par
 sendfile file.pdf folder          # 📤 subfolder me
 
 # ── KABHI KABHI ───────────────────────────
-ls /sdcard/Download/build-studio/storage/    # files dekho
+ls /sdcard/Download/build-studio/    # files dekho
 unzip -o /sdcard/Download/build-studio-files.zip -d /sdcard/Download/build-studio/
 ```
 

@@ -18,7 +18,7 @@ curl -sL "$BASE/build-studio-files.zip" -o /sdcard/Download/build-studio-files.z
 unzip -o /sdcard/Download/build-studio-files.zip -d /sdcard/Download/build-studio/ >/dev/null
 echo ""
 echo "✅ DONE! Files yahan hain: /sdcard/Download/build-studio/"
-ls /sdcard/Download/build-studio/storage/
+ls /sdcard/Download/build-studio/
 SCRIPT
 
 # 'sendfile' shortcut (upload)

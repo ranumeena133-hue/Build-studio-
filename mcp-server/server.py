@@ -83,7 +83,7 @@ def _do_sync() -> None:
         with zipfile.ZipFile(REPO_ROOT / "build-studio-files.zip", "w", zipfile.ZIP_DEFLATED) as z:
             for p in sorted(STORAGE.rglob("*")):
                 if p.is_file():
-                    z.write(p, arcname=str(p.relative_to(REPO_ROOT)))
+                    z.write(p, arcname=_rel(p))  # zip me seedha files, storage/ folder nahi
         _git("pull", "--rebase", "--autostash", "origin", BRANCH)
         _git("add", "-A")
         c = _git("commit", "-m", f"auto-sync: storage update {datetime.now():%Y-%m-%d %H:%M}")
