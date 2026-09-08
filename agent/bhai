@@ -639,6 +639,8 @@ def _apply_file_op(kind: str, op: dict, tgt: Path, i: int) -> str:
         return w_text(tgt, str(text))
 
     if kind in ("append",):
+        if DRY and not tgt.exists():
+            return "dry-run (abhi file nahi - earlier step banayegi)"
         return w_text(tgt, str(op.get("content", "")), append=True)
 
     if kind in ("touch",):
@@ -653,6 +655,8 @@ def _apply_file_op(kind: str, op: dict, tgt: Path, i: int) -> str:
 
     if kind in ("replace", "sed", "edit"):
         if not tgt.exists():
+            if DRY:
+                return "dry-run (abhi file nahi - kisi earlier step banayegi)"
             raise FileNotFoundError(tgt)
         txt = tgt.read_text(encoding=op.get("encoding", "utf-8"), errors="replace")
         find, with_ = str(op.get("find", "")), str(op.get("with", op.get("replace", "")))
@@ -683,6 +687,8 @@ def _apply_file_op(kind: str, op: dict, tgt: Path, i: int) -> str:
         return f"{n} change(s)"
 
     if kind in ("copy", "cp"):
+        if DRY and not tgt.exists():
+            return "dry-run (source abhi nahi - earlier step banayegi)"
         dst = phone_path(op["to"])
         if dst.is_dir():                      # dir target -> keep basename
             dst = dst / tgt.name
@@ -903,7 +909,10 @@ def cmd_sync(rep: R, st: dict, only=None, force=False, no_pull=False) -> None:
         st["last_report"] = write_report(rep)
 
 
-def write_report(rep: R) -> str:
+def write_report(rep: R, keep_if_empty=True) -> str:
+    if keep_if_empty and not rep.results:
+        prev = OUT / "latest.txt"
+        return prev.read_text(encoding="utf-8") if prev.exists() else ""
     head = [
         f"bhai report v{VERSION}  ·  {datetime.now().isoformat(timespec='seconds')}",
         f"device: {os.environ.get('TERMUX_APP_PACKAGE', 'termux')} · android: "
@@ -1315,6 +1324,8 @@ def main(argv) -> int:
         st = load_state()
         cmd_sync(rep, st, force="--force" in flags)
         print("\n" + "=" * 58)
+        if not rep.results and not DRY:
+            print("kuch naya nahi - sab up-to-date. (naya task aaye to main commit karunga)")
         print(f"DONE  {rep.ok} ok · {rep.err} err · {len(rep.results)} step")
         if rep.err:
             print("  error details: `bhai report`")
