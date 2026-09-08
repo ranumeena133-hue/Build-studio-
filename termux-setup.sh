@@ -14,7 +14,7 @@ cat > "$PREFIX/bin/getfiles" << 'SCRIPT'
 BASE="https://raw.githubusercontent.com/ranumeena133-hue/Build-studio-/arena/01a07dfe-build-studio"
 command -v unzip >/dev/null 2>&1 || pkg install -y unzip
 echo "📥 Build Studio ki files aa rahi hain..."
-curl -sL "$BASE/build-studio-files.zip" -o /sdcard/Download/build-studio-files.zip
+curl -sL "$BASE/build-studio-files.zip?t=$(date +%s)" -o /sdcard/Download/build-studio-files.zip  # ?t= cache-buster: hamesha fresh zip
 unzip -o /sdcard/Download/build-studio-files.zip -d /sdcard/Download/build-studio/ >/dev/null
 echo ""
 echo "✅ DONE! Files yahan hain: /sdcard/Download/build-studio/"
