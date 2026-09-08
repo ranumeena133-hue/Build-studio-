@@ -66,13 +66,13 @@ for cand in "${PREFIX:-/data/data/com.termux/files/usr}/bin" "$HOME/.local/bin";
 done
 [ -n "$BIN" ] || { mkdir -p "$HOME/.local/bin"; BIN="$HOME/.local/bin"; }
 ln -sf "$REPO/agent/bhai" "$BIN/bhai"
+export PATH="$BIN:$PATH"          # is script ke andar bhi `bhai` chale
 ok "command ready: $BIN/bhai -> agent/bhai"
-case ":$PATH:" in
-  *":$BIN:"*) : ;;
-  *) grep -q '\.local/bin' "$HOME/.bashrc" 2>/dev/null \
-       || echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
-     say "PATH me add kiya (.bashrc) - naya Termux session kholo ya: source ~/.bashrc" ;;
-esac
+if ! grep -qxF "export PATH=\"$BIN:\$PATH\"" "$HOME/.bashrc" 2>/dev/null; then
+  echo "export PATH=\"$BIN:\$PATH\"" >> "$HOME/.bashrc" 2>/dev/null \
+    && say "PATH me add kiya ($HOME/.bashrc) - naya session kholo ya: source ~/.bashrc" \
+    || say "note: $BIN ko PATH me khud add kar lena"
+fi
 
 # ---- 4. self-consistent config (origin url + current branch) --------------
 URL=$(git -C "$REPO" remote get-url origin 2>/dev/null || echo "")
