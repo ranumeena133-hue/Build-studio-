@@ -1,94 +1,116 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # ============================================================================
-# survey.sh - phone storage ka naksha banao. READ ONLY. Kuch move/delete nahi.
-# Output: <shared>/Download/BuildStudio/storage-map.txt
-# `bhai map` isi ko chalata hai; tasks/0003-storage-map.json bhi.
-# Portability: Android ke find/stat par -printf na mile to fallback use hota hai.
+# survey.sh - phone storage ka naksha. READ ONLY (kuch move/delete nahi hota).
+#   usage: bash survey.sh [outfile]
+# Default out: <shared>/Download/BuildStudio/storage-map.txt
+# `bhai map` isi ko chalata hai (tasks/0003-storage-map.json bhi).
+# Android portability: find -printf na support ho to stat-based fallback lagta hai.
 # ============================================================================
 set -u
 SH="${BHAI_SHARED:-$HOME/storage/shared}"
 [ -d "$SH" ] || SH="/sdcard"
+# IMPORTANT: Termux me ~/storage/shared ek SYMLINK hai -> `find $SH` usme ghusta hi nahi.
+# isliye physical path me convert karte hain (pwd -P, POSIX, har device par chalta hai).
+if [ -d "$SH" ]; then
+  R=$(cd "$SH" 2>/dev/null && pwd -P 2>/dev/null) && [ -n "$R" ] && SH="$R"
+fi
+SH="${SH%/}"; [ -n "$SH" ] || SH=/sdcard
+BIG_MB=${BIG_MB:-20}          # 'biggest files' ka threshold
 OUT="${1:-$SH/Download/BuildStudio/storage-map.txt}"
 mkdir -p "$(dirname "$OUT")" 2>/dev/null
-T() { timeout "${2:-90}" "$@" 2>/dev/null; }   # time-bounded, never crash
 
-size_lines() {         # $1 = find args...  -> "bytes<TAB>path" lines
+# T <seconds> <cmd...>  ->  time-bounded, errors chup, kabhi crash nahi
+T() { local t=${1:-90}; shift; timeout "$t" "$@" 2>/dev/null; }
+# N <cmd...> -> line count
+N() { local n; n=$(T 90 "$@" | wc -l); printf '%s' "${n:-0}"; }
+
+size_lines() {                 # size_lines <find expr...> -> "bytes<TAB>path"
   local out
-  out=$(T find "$SH" -type f "$@" -printf '%s\t%p\n' 120 | sort -rn | head -40)
-  if [ -z "$out" ]; then
-    out=$(T find "$SH" -type f "$@" -print 150 | head -300 | while IFS= read -r f; do
-             s=$(T stat -c '%s' "$f" 8); [ -n "$s" ] && printf '%s\t%s\n' "$s" "$f"
-           done | sort -rn | head -40)
+  # \( ... \) zaroori hai: warna `A -o B -printf` me -printf sirf B branch par lagta hai
+  out=$(T 150 find "$SH" \( "$@" \) -type f -printf '%s\t%p\n' | sort -rn | head -40)
+  if [ -z "${out//[[:space:]]/}" ]; then
+    out=$(T 180 find "$SH" \( "$@" \) -type f -print | head -400 | while IFS= read -r f; do
+            s=$(T 10 stat -c '%s' "$f"); [ -n "$s" ] && printf '%s\t%s\n' "$s" "$f"
+          done | sort -rn | head -40)
   fi
   printf '%s\n' "$out"
 }
 
+MB() { awk -F'\t' '$1>0{printf "  %8.1f MB  %s\n", $1/1048576, $2}'; }
+
 {
   echo "# bhai storage map"
   echo "# generated: $(date '+%F %T %Z')"
+  echo "# root: $SH"
   echo
   echo "## device"
   if command -v getprop >/dev/null 2>&1; then
-    echo "  model  : $(getprop ro.product.model)"
-    echo "  android: $(getprop ro.build.version.release) (sdk $(getprop ro.build.version.sdk))"
-    echo "  brand  : $(getprop ro.product.manufacturer)"
+    echo "  model   : $(T 5 getprop ro.product.model)"
+    echo "  brand   : $(T 5 getprop ro.product.manufacturer)"
+    echo "  android : $(T 5 getprop ro.build.version.release) (sdk $(T 5 getprop ro.build.version.sdk))"
   fi
-  uname -a | sed 's/^/  /'
-  echo "  termux pkg count: $(T dpkg -l 20 | tail -n +6 | wc -l)"
+  echo "  kernel  : $(uname -s -r -m)"
+  echo "  termux  : $(command -v pkg >/dev/null 2>&1 && T 25 dpkg -l | tail -n +6 | wc -l || echo '?') pkgs installed"
   echo
   echo "## free space"
-  df -h "$SH" | tail -2 | sed 's/^/  /'
+  T 10 df -h "$SH" | tail -1 | sed 's/^/  /'
   echo
-  echo "## top-level of /sdcard"
-  printf '%-14s %9s %9s  %s\n' FOLDER SIZE "FILES" "LAST-MOD"
-  for d in DCIM Pictures Movies Download Documents Music Notifications Podcasts Alarms Ringtones Android WhatsApp Telegram; do
-    p="$SH/$d"
-    [ -d "$p" ] || continue
-    n=$(T find "$p" -type f 90 | wc -l)
-    sz=$(T du -sh "$p" 90 | cut -f1)
-    mt=$(T stat -c '%y' "$p" 8 | cut -d. -f1)
-    printf '%-14s %9s %9s  %s\n' "$d" "${sz:-?}" "$n" "${mt:-?}"
+  echo "## top-level of shared storage"
+  printf '%-14s %9s %8s  %s\n' FOLDER SIZE FILES LAST-MODIFIED
+  for d in DCIM Pictures Movies Download Documents Music Notifications Podcasts Ringtones Alarms Android WhatsApp Telegram, X Docs Google Chrome; do
+    p="$SH/$d"; [ -d "$p" ] || continue
+    sz=$(T 120 du -sh "$p" | cut -f1)
+    n=$(N find "$p" -type f)
+    mt=$(T 5 stat -c '%y' "$p" | cut -d. -f1)
+    printf '%-14s %9s %8s  %s\n' "$d" "${sz:-?}" "$n" "${mt:-?}"
   done
   echo
-  echo "## biggest files (>20MB, top 20)"
-  size_lines -size +20M | head -20 | awk -F'\t' '$1>0{printf "  %8.1f MB  %s\n", $1/1048576, $2}'
+  echo "## biggest files (>${BIG_MB}MB, top 20)"
+  size_lines -size +"${BIG_MB}M" | head -20 | MB
   echo
-  echo "## files by extension (top 14)"
-  T find "$SH" -type f 150 | sed 's/.*\///' | awk -F. 'NF>1{print tolower($NF)}' | sort | uniq -c | sort -rn | head -14 | sed 's/^/  /'
+  echo "## files by extension (top 14 by count)"
+  T 150 find "$SH" -type f | sed 's/.*\///' | awk -F. 'NF>1 && length($NF)<9 {print tolower($NF)}' \
+    | sort | uniq -c | sort -rn | head -14 | sed 's/^/  /'
   echo
-  echo "## media breakdown"
+  echo "## media breakdown per folder"
   for d in DCIM Pictures Download Movies WhatsApp Telegram; do
     p="$SH/$d"; [ -d "$p" ] || continue
-    j=$(T find "$p" -iname '*.jpg' -o -iname '*.jpeg' 60 | wc -l)
-    v=$(T find "$p" -iname '*.mp4' -o -iname '*.mkv' -o -iname '*.3gp' 60 | wc -l)
-    g=$(T find "$p" -iname '*.png' -o -iname '*.webp' 60 | wc -l)
-    a=$(T find "$p" -iname '*.mp3' -o -iname '*.m4a' 60 | wc -l)
-    printf '  %-10s img=%-6s video=%-6s png/webp=%-6s audio=%s\n' "$d" "$j" "$v" "$g" "$a"
+    printf '  %-10s img=%-6s video=%-6s png=%-6s audio=%s\n' "$d" \
+      "$(N find "$p" -iname '*.jpg' -o -iname '*.jpeg')" \
+      "$(N find "$p" -iname '*.mp4' -o -iname '*.mkv' -o -iname '*.3gp')" \
+      "$(N find "$p" -iname '*.png' -o -iname '*.webp')" \
+      "$(N find "$p" -iname '*.mp3' -o -iname '*.m4a')"
   done
   echo
-  echo "## screenshots vs camera (organise karne laayak)"
-  printf '  %-28s %s\n' "Screenshot/" "$(T find "$SH/Screenshot" -type f 60 | wc -l)"
-  printf '  %-28s %s\n' "Pictures/Screenshots" "$(T find "$SH/Pictures/Screenshots" -type f 60 | wc -l)"
-  printf '  %-28s %s\n' "DCIM/Camera" "$(T find "$SH/DCIM/Camera" -type f 60 | wc -l)"
+  echo "## camera vs screenshots (organising ke liye)"
+  printf '  %-26s %s\n' "DCIM/Camera"            "$(N find "$SH/DCIM/Camera" -type f)"
+  printf '  %-26s %s\n' "Pictures/Screenshots"    "$(N find "$SH/Pictures/Screenshots" -type f)"
+  printf '  %-26s %s\n' "Screenshot"              "$(N find "$SH/Screenshot" -type f)"
   echo
-  echo "## junk / temp (delete candidates - main PUCHH ke hi delete karunga)"
-  size_lines -name '*.tmp' -o -name '*.partial' -o -name '*.log' -o -name '.*.swp' | head -20 | awk -F'\t' '$1>0{printf "  %9s B  %s\n", $1, $2}'
+  echo "## junk / temp (delete candidates - main LIST dunga, 'haan' bolo tabhi delete hoga)"
+  size_lines -name '*.tmp' -o -name '*.partial' -o -name '*.log' -o -name '*.crdownload' -o -name '.*.swp' | head -20 \
+    | awk -F'\t' '$1>0{printf "  %10s B  %s\n", $1, $2}'
   echo
-  echo "## very old files in Download (>365 din) - archive candidates"
-  T find "$SH/Download" -type f -mtime +365 90 | head -40 | sed 's/^/  /'
+  echo "## Download me 1 saal se purane (archive candidates)"
+  T 120 find "$SH/Download" -type f -mtime +365 | head -40 | sed 's/^/  /'
   echo
-  echo "## same-size pairs (duplicate shak)"
-  T find "$SH/DCIM" "$SH/Pictures" "$SH/Download" -type f -size +100k 90 >/dev/null
-  { T find "$SH/DCIM" -type f -size +100k -printf '%s\t%p\n' 90; } | sort -n | awk -F'\t' 'c[$1]++==1{print "  same size " $1 "B:"} c[$1]>1{print "    " $2}' | head -30
+  echo "## same-size pairs in DCIM (duplicate shak - confirm karke hi hataunga)"
+  dup=$(T 150 find "$SH/DCIM" -type f -size +100k -printf '%s\t%p\n' | sort -n)
+  if [ -z "${dup//[[:space:]]/}" ]; then
+    dup=$(T 180 find "$SH/DCIM" -type f -size +100k -print | head -300 | while IFS= read -r f; do
+            s=$(T 10 stat -c '%s' "$f"); [ -n "$s" ] && printf '%s\t%s\n' "$s" "$f"
+          done | sort -n)
+  fi
+  printf '%s\n' "$dup" | awk -F'\t' 'c[$1]++==1{printf "  [%s B]:\n",$1} c[$1]>1{printf "    %s\n",$2}' | head -30
   echo
   echo "## termux home"
-  du -sh "$HOME" 2>/dev/null | sed 's/^/  /'
+  T 60 du -sh "$HOME" 2>/dev/null | sed 's/^/  /'
   echo
-  echo "# AGENT NOTE: yeh file padhke main tumhare liye safe task banaunga."
-  echo "# kuch bhi delete karne se pehle main list dunga, tum 'haan' bolo tabhi hoga."
+  echo "# AGENT NOTE: yeh padhke main tumhare liye safe task banaunga."
+  echo "# Koi bhi delete/trash task 'confirm' field ke saath aayega - bina word type kiye nahi chalega."
 } > "$OUT" 2>/dev/null
 
 BYTES=$(wc -c < "$OUT" 2>/dev/null || echo 0)
 echo "storage-map written: $OUT (${BYTES} bytes)"
-[ "$BYTES" -gt 40 ] && sed -n '1,28p' "$OUT"
+[ "$BYTES" -gt 40 ] && sed -n '1,34p' "$OUT"
 exit 0

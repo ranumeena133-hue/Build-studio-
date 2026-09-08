@@ -1283,8 +1283,9 @@ FLAGS: list[str] = []
 def main(argv) -> int:
     global DRY, FLAGS
     args = argv[1:]
-    flags = [a for a in args if a.startswith("-")]
-    pos = [a for a in args if not a.startswith("-")]
+    # bare "-" = stdin marker, woh flag nahi hai
+    flags = [a for a in args if a.startswith("-") and a != "-"]
+    pos = [a for a in args if not a.startswith("-") or a == "-"]
     DRY = "--dry" in flags or "--dry-run" in flags
     FLAGS = flags
     load_cfg()
@@ -1370,7 +1371,10 @@ def main(argv) -> int:
             tmp = BHAI / f"stdin-task-{int(time.time())}.json"
             dump_json(tmp, data)
             run_task_file(tmp, rep, st, force="--force" in flags)
-            tmp.unlink(missing_ok=True)
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
         elif arg:
             n = run_queue(rep, st, only_id=arg, force=True)
             if n == 0:
@@ -1385,6 +1389,9 @@ def main(argv) -> int:
     if cmd == "sync":
         rep = R()
         st = load_state()
+        if "--force" in flags and not DRY:
+            print("! --force: saare tasks DOBARA chalenge (move/rename duplicate kar sakte hain). Ctrl-C for 2 sec...")
+            time.sleep(2)
         cmd_sync(rep, st, force="--force" in flags)
         print("\n" + "=" * 58)
         if not rep.results and not DRY:

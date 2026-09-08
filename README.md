@@ -50,9 +50,12 @@ bhai watch     # agent mode: har 30s me auto-sync (ek session me chhodo mat)
 | `bhai down` | mere edits original phone location par wapas rakh do (hash se: sirf badle hue) |
 | `bhai run <id>` | ek task chalao · `echo '<json>' \| bhai run -` = chat se aaya task directly |
 | `bhai ls [dir]` · `bhai find '**/*.mp4'` · `bhai du` | mujhe storage ka naksha dene ke liye |
+| `bhai map` | poora storage survey -> `Download/BuildStudio/storage-map.txt` + stage (read-only) |
+| `echo '<json>' \| bhai run -` | **zero-git mode**: chat se aaya task seedha chalao (network bhi nahi chahiye) |
 | `bhai report [--copy]` | paste-ready summary (clipboard, agar termux-api hai) |
 | `bhai doctor` | permission / git / network / disk check |
 | `bhai config K=V` | REPO_URL, BRANCH, SHARED, MAX_MB, WATCH_SEC, TIMEOUT, NOTIFY |
+| `BIG_MB=50 bhai map` | survey ka "badi file" threshold |
 | `bhai auth <token>` / `bhai auth off` | optional: push-back chalu/band |
 | `bhai boot on` | reboot ke baad bhi `watch` apne aap (Termux:Boot app chahiye) |
 | `bhai log 60` · `bhai selfupdate` · `bhai uninstall` | debug / update / saaf karna |
@@ -76,9 +79,18 @@ Global flags: `--dry` (preview, kuch nahi badlega), `--force` (applied task doba
 > "saare screenshots ka naam `2026-09-08-{n}.png` kar de, original copy rakh de"
 > "DCIM me duplicate photos dhoondh ke ek list bana de, abhi delete mat kar"
 > "mera `.zshrc` theek kar" → `bhai up ~/.zshrc` → main edit → `bhai down`
+> "storage ka map bhej" → `bhai map` → `bhai up Download/BuildStudio/storage-map.txt` → attach
 > `~/storage/shared/Music` me sabhi `.mp3` ke tags folder-name se align karo → `bhai sh '...'` wala step
 
 Main turant `tasks/NNNN-*.json` likh ke commit karunga. Tumhara `bhai watch` use utha lega.
+
+## 4b. Teen modes (jis din jo suit kare)
+
+| mode | phone ko kya chahiye | kaise |
+|---|---|---|
+| **pull-only** (default) | `git` + net, koi token nahi | main commit → `bhai sync` / `bhai watch` → `bhai report` paste |
+| **zero-net** | kuch nahi | main JSON chat me deta hoon → `echo '<json>' \| bhai run -` |
+| **full-auto** | optional `bhai auth <PAT>` | `bhai up <file> -g` seedha repo me, receipts apne aap |
 
 ## 5 Files
 
@@ -86,6 +98,7 @@ Main turant `tasks/NNNN-*.json` likh ke commit karunga. Tumhara `bhai watch` use
 agent/bhai          # pura agent — python3 stdlib only, ~800 lines, koi pip install nahi
 agent/install.sh    # one-shot bootstrap (Termux)
 agent/TASKS.md      # task JSON ka spec + saare ops
+agent/survey.sh     # 'bhai map' ka engine (read-only storage survey)
 tasks/*.json        # mera inbox: jo phone par karna hai
 storage/            # file exchange: tumhari files, mere edits
 reports/            # phone ke receipts (push on ho to apne aap aayenge)
