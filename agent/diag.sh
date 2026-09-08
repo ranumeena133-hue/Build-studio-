@@ -9,7 +9,8 @@
 set -u
 OUT="${1:-$HOME/storage/shared/Download/BuildStudio/termux-diag.txt}"
 mkdir -p "$(dirname "$OUT")" 2>/dev/null
-T() { local t=${1:-15}; shift; timeout "$t" "$@" 2>&1; }
+T() { local t=${1:-15}; shift; timeout "$t" "$@" 2>/dev/null; }   # shant: error noise report me nahi
+E() { local t=${1:-15}; shift; timeout "$t" "$@" 2>&1 | tail -1; } # jahan error bhi info hai
 P="${PREFIX:-/data/data/com.termux/files/usr}"
 
 {
@@ -22,9 +23,9 @@ P="${PREFIX:-/data/data/com.termux/files/usr}"
     echo "  android    : $(T 5 getprop ro.build.version.release) (sdk $(T 5 getprop ro.build.version.sdk))"
     echo "  abi        : $(T 5 getprop ro.product.cpu.abi)"
   fi
-  echo "  termux app : $(T 5 getprop -v '' 2>/dev/null; dumpsys package com.termux 2>/dev/null | grep -m1 versionName || echo '?')"
+  echo "  termux app : $(T 6 dumpsys package com.termux | grep -m1 -o 'versionName=.*' || echo '?')"
   echo "  kernel     : $(uname -s -r -m)"
-  echo "  termux data: $(T 20 du -sh "$P" | cut -f1)"
+  echo "  termux data: $(T 25 du -sh "$P" | cut -f1)  (prefix: $P)"
   echo
   echo "## tools available"
   for c in git python3 pip curl wget tar sed awk grep find du df timeout proot dash; do
@@ -38,9 +39,9 @@ P="${PREFIX:-/data/data/com.termux/files/usr}"
   echo "  sources    : $SRC"
   [ -f "$SRC" ] && sed 's/^/    /' "$SRC" || echo "    (file nahi mila)"
   echo "  lists date : $(T 10 ls -l "$P/var/lib/apt/lists" 2>/dev/null | awk 'NR>1{print $6,$7,$8}' | head -1)"
-  echo "  lists size : $(T 15 du -sh "$P/var/lib/apt/lists" 2>/dev/null | cut -f1)"
+  echo "  lists size : $(T 15 du -sh "$P/var/lib/apt/lists" | cut -f1)"
   echo "  lock       : $(ls "$P/var/lib/dpkg/lock" 2>/dev/null && echo 'lock file hai (dusra pkg chal raha?)' || echo free)"
-  echo "  dpkg db    : $(T 15 grep -c '^Package:' "$P/var/lib/dpkg/status" 2>/dev/null)"
+  echo "  dpkg db    : $(T 15 grep -c '^Package:' "$P/var/lib/dpkg/status") packages"
   echo
   echo "## network -> termux mirror + github"
   for U in https://packages.termux.dev/apt/termux-main/dists/stable/Release \
@@ -56,7 +57,9 @@ P="${PREFIX:-/data/data/com.termux/files/usr}"
     fi
     printf '  %-8s %s\n' "$(printf '%s' "$U" | sed 's|https://||;s|/.*||' | cut -c1-8)" "${R:-no tool}"
   done
-  echo "  dns        : $(T 8 getprop net.dns1) / $(T 8 getprop net.dns2)  resolve: $(T 8 python3 -c "import socket;print(socket.gethostbyname('packages.termux.dev'))" 2>&1 | tail -1)"
+  echo "  dns        : $(T 8 getprop net.dns1) / $(T 8 getprop net.dns2)"
+  echo "  resolve    : $(E 10 python3 -c "import socket;print(socket.gethostbyname('packages.termux.dev'))")"
+  echo "  resolve(github): $(E 10 python3 -c "import socket;print(socket.gethostbyname('codeload.github.com'))")"
   echo
   echo "## space (pkg install ke liye ~200MB chahiye hota hai)"
   T 10 df -h "$HOME" | tail -2 | sed 's/^/  /'
