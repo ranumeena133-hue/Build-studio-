@@ -239,6 +239,7 @@ def load_state() -> dict:
     if not isinstance(st, dict):
         st = {}
     st.setdefault("applied", [])
+    st.setdefault("inbox", {})
     st.setdefault("last_report", "")
     return st
 
@@ -1106,14 +1107,26 @@ def c_down(args) -> None:
             continue
         extras.append((rk, f))
     if extras:
+        st = load_state()
+        seen = st.setdefault("inbox", {})
         inbox = shared() / "Download" / "BuildStudio" / "inbox"
-        print(f"\n~ nayi files jo main tumhare liye banayi ({len(extras)}) -> {rel_to_shared(inbox)}/")
+        fresh = []
         for rk, f in extras:
-            dst = inbox / rk
-            try:
-                print(f"  [ok] {rk}  ({cp(f, dst)})")
-            except Exception as e:
-                print(f"  [err] {rk}: {e}")
+            if seen.get(rk) == sha256_file(f):
+                continue
+            fresh.append((rk, f))
+        if not fresh:
+            print(f"· inbox me sab files already padi hain ({len(extras)} checked, koi naya nahi)")
+        else:
+            print(f"\n~ nayi files jo main tumhare liye banayi ({len(fresh)}) -> {rel_to_shared(inbox)}/")
+            for rk, f in fresh:
+                try:
+                    print(f"  [ok] {rk}  ({cp(f, inbox / rk)})")
+                    seen[rk] = sha256_file(f)
+                except Exception as e:
+                    print(f"  [err] {rk}: {e}")
+            if not DRY:
+                save_state(st)
     if not man and not extras:
         print("· kuch bhi wapas rakhne jaisa nahi. Flow: `bhai up <file>` -> main edit -> `bhai down`")
 
