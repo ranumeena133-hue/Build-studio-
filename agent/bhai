@@ -34,6 +34,9 @@ Commands
 
 Safety rails
 ------------
+  Git optional hai: git na bhi ho to agent repo ka tarball seedha https se
+  kheench leta hai (bhai config SYNC_MODE=http). Sirf python3 chahiye, bas.
+
   * Write/delete sirf in roots ke andar: /sdcard (shared), $HOME, ~/.bhai, /tmp, repo.
   * `delete` hard-delete nahi karta -> ~/.bhai/trash/<time>/ me chala jaata hai (`--force` ke bina).
   * `bhai run --dry` / `bhai sync --dry` = sirf dikhayega, kuch badlega nahi.
@@ -82,6 +85,7 @@ CFG: dict = {
     "TIMEOUT": "600",        # ek sh op ka timeout (sec)
     "DU_BUDGET": "15",       # du/find ka time budget (sec)
     "NOTIFY": "1",           # watch me termux-notification bhejo
+    "SYNC_MODE": "auto",     # auto = git -> fail hua to http tarball | git | http
 }
 
 DRY = False
@@ -331,6 +335,10 @@ def pull(quiet=False) -> bool:
 
 def push(msg: str = "phone -> repo via bhai") -> bool:
     ensure_dirs()
+    if not shutil.which("git"):
+        print("! push ke liye `git` chahiye (`pkg install git`).")
+        print("  Filhaal zarurat bhi nahi: chat me file attach kar do ya `bhai report` paste kar do.")
+        return False
     if not have_clone():
         print("! clone nahi hai. `bhai sync` pehle.")
         return False
@@ -880,9 +888,100 @@ def stage_up(src: Path) -> int:
     print(f"  {n} file staged -> {UPLOAD}")
     print("  Ab 2 raaste:")
     print("   A) chat me file attach kar do (Arena use storage/ me rakh deta hai) - main edit kar dunga")
-    print("   B) `bhai push` (agar `bhai auth <token>` set hai) - seedha repo me")
+    print("   B) `bhai push` (git + `bhai auth <token>` ho tab) - seedha repo me")
     print("  Mere edit ke baad: `bhai sync && bhai down`")
     return n
+
+
+# ---------------------------------------------------------------- http sync (git nahi chahiye)
+def github_slug():
+    m = re.search(r"github\.com[:/]+([^/]+)/([^/]+?)(?:\.git)?/?$", CFG["REPO_URL"])
+    return (m.group(1), m.group(2)) if m else None
+
+
+def _dir_hash(d: Path) -> str:
+    h = hashlib.sha256()
+    if not d.is_dir():
+        return "missing"
+    for f in sorted(d.rglob("*")):
+        if f.is_file():
+            try:
+                st = f.stat()
+                h.update(f"{f.relative_to(d)}:{st.st_size}".encode())
+            except Exception:
+                pass
+    return h.hexdigest()[:16]
+
+
+def http_pull(quiet=False) -> bool:
+    """Repo ka tarball seedha urllib se - koi git, koi token, koi API nahi."""
+    import io
+    import tarfile
+    import urllib.request
+    slug = github_slug()
+    if not slug:
+        print("! REPO_URL GitHub nahi lag raha - http mode skip. (bhai config REPO_URL=...)")
+        return False
+    owner, name = slug
+    br = CFG["BRANCH"]
+    url = f"https://codeload.github.com/{owner}/{name}/tar.gz/refs/heads/{br}"
+    if not quiet:
+        print(f"~ http pull: {url}")
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": f"bhai/{VERSION}"})
+        with urllib.request.urlopen(req, timeout=90) as r:
+            data = r.read(80 * 1024 * 1024)
+    except Exception as e:
+        print(f"! http pull fail: {str(e)[:180]}")
+        return False
+    if len(data) < 200:
+        print("! tarball khaali/404 - branch naam check karo")
+        return False
+    tmp = BHAI / ".http-new"
+    shutil.rmtree(tmp, ignore_errors=True)
+    tmp.mkdir(parents=True, exist_ok=True)
+    try:
+        with tarfile.open(fileobj=io.BytesIO(data)) as t:
+            names = t.getnames()
+            if not names:
+                raise ValueError("empty tarball")
+            try:
+                t.extractall(tmp, filter="data")          # py>=3.11.4
+            except TypeError:
+                t.extractall(tmp)
+    except Exception as e:
+        print(f"! tar parse fail: {e}")
+        shutil.rmtree(tmp, ignore_errors=True)
+        return False
+    src = tmp / names[0].split("/")[0]
+    REPO.mkdir(parents=True, exist_ok=True)
+    changed = []
+    for sub in ("agent", "tasks", "storage", "reports"):
+        s2, d2 = src / sub, REPO / sub
+        if not s2.is_dir():
+            continue
+        if _dir_hash(d2) != _dir_hash(s2):
+            shutil.rmtree(d2, ignore_errors=True)
+            d2.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(s2, d2, symlinks=True)
+            changed.append(sub)
+    shutil.rmtree(tmp, ignore_errors=True)
+    if not quiet:
+        print(f"· http sync done - badla: {', '.join(changed) if changed else 'kuch naya nahi'}")
+    return True
+
+
+def sync_from_remote(quiet=False) -> bool:
+    """SYNC_MODE=auto: git ho to git (push bhi possible), warna/fail par http tarball."""
+    mode = CFG.get("SYNC_MODE", "auto")
+    if mode == "http":
+        return http_pull(quiet)
+    if pull(quiet=quiet):
+        return True
+    if mode == "git":
+        return False
+    print("! git pull fail -> http mode try kar raha hoon ...")
+    return http_pull(quiet)
 
 
 def find_by_name(root: Path, name: str):
@@ -900,7 +999,7 @@ def find_by_name(root: Path, name: str):
 
 def cmd_sync(rep: R, st: dict, only=None, force=False, no_pull=False) -> None:
     if not no_pull:
-        if not pull():
+        if not sync_from_remote():
             rep.note("pull fail (offline?) - jo tasks pehle se hain unpar chalata hoon")
     ran = run_queue(rep, st, only_id=only, force=force)
     if ran > 0:
@@ -1163,8 +1262,14 @@ def c_doctor() -> None:
             print(f"  write test : FAIL - {e}")
     print(f"  repo       : {CFG['REPO_URL']}  branch={CFG['BRANCH']}")
     print(f"  clone      : {'yes' if have_clone() else 'no (bhai sync pehle bana dega)'}")
-    code, out, err = git("ls-remote", "--heads", CFG["REPO_URL"], CFG["BRANCH"])
-    print(f"  network    : {'OK - repo visible' if code == 0 and out else 'FAIL: ' + (err or 'no net')[:120]}")
+    mode = CFG.get("SYNC_MODE", "auto")
+    if shutil.which("git"):
+        code, out, err = git("ls-remote", "--heads", CFG["REPO_URL"], CFG["BRANCH"])
+        net = "OK - git dekh sakta hai" if code == 0 and out else f"git FAIL: {(err or '')[:90]}"
+    else:
+        code, net = 1, "git NAHI hai - koi baat nahi, http tarball mode use hoga"
+    print(f"  network    : {net}")
+    print(f"  sync mode  : {mode}" + ("" if mode == "git" else "  (http fallback ready)" if not shutil.which('git') else ""))
     print(f"  push token : {'configured' if CFG.get('PUSH_URL') else 'none (report paste karna - optional)'}")
     for d in ("termux-clipboard-set", "termux-notification", "termux-api"):
         print(f"  {d:<13}: {'ok' if shutil.which(d) else '-'}")
@@ -1303,6 +1408,9 @@ def main(argv) -> int:
         return 0
     if cmd in ("selfupdate", "update"):
         if not have_clone():
+            if http_pull():
+                print("agent updated (http). Ab:  bhai version")
+                return 0
             print("! clone nahi hai, pehle `bhai sync`")
             return 1
         code, out, err = git("fetch", "--quiet", "origin", CFG["BRANCH"])

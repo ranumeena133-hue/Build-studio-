@@ -42,7 +42,13 @@ if command -v pkg >/dev/null 2>&1; then
     say "git + python3 already present - pkg skip"
   fi
 fi
-command -v git >/dev/null 2>&1 || { warn "git missing - install karke dobara chalao"; exit 1; }
+if command -v git >/dev/null 2>&1; then
+  ok "git $(git --version 2>/dev/null | awk '{print $3}')"
+else
+  warn "git NAHI hai - koi baat nahi. Agent http tarball mode se sync karega."
+  say  "  (baad me `pkg install git` karoge to push/report auto bhi ho jayega)"
+  NOGIT=1
+fi
 if ! command -v python3 >/dev/null 2>&1; then
   warn "python3 missing -> pkg install python -y ; phir dobara: bash $HERE/install.sh"
   exit 1
@@ -76,7 +82,8 @@ fi
 
 # ---- 4. self-consistent config (origin url + current branch) --------------
 URL=$(git -C "$REPO" remote get-url origin 2>/dev/null || echo "")
-BR=$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
+BR=$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+[ -n "$BR" ] || BR="${BHAI_BRANCH:-arena/01a08283-build-studio}"
 [ -n "$URL" ] || URL="https://github.com/ranumeena133-hue/Build-studio-.git"
 CFG="$BHAIDIR/config"
 : > "$CFG"
@@ -89,6 +96,8 @@ CFG="$BHAIDIR/config"
   echo "NOTIFY=1"
 } >> "$CFG"
 ok "config: $CFG  (branch $BR)"
+[ "${NOGIT:-0}" = 1 ] && { echo "SYNC_MODE=http" >> "$CFG"; say "SYNC_MODE=http set kiya (git ke bina)"; }
+true
 
 # ---- 5. first sync ---------------------------------------------------------
 echo
