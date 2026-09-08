@@ -1,0 +1,15 @@
+# --- agent / editor junk ---
+__pycache__/
+*.pyc
+*.tmp
+*.lock
+.DS_Store
+*.log
+.termux/
+
+# --- bhaari binaries ka safeguard: repo me garbage na jame ---
+*.7z
+*.iso
+*.apk.enc
+
+# NOTE: storage/, tasks/, reports/ jaan-boojh ke TRACKED hain - yehi bridge hai.

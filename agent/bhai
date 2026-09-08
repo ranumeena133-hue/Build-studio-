@@ -1,0 +1,1310 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+bhai - Termux storage agent (Build Studio bridge)
+=================================================
+Aapke phone ke storage ko Arena chat se jodta hai. No API, no server, no setup.
+
+    [ main / Arena chat ]  --commit-->  [ GitHub repo (public) ]  --git pull-->  [ bhai @ Termux ]  --ops-->  [ /sdcard ]
+    [                          <--git push / attach report--                        ]
+
+Chalane ke liye sirf python3 (stdlib) aur git chahiye. Bas.
+
+Commands
+--------
+  bhai              same as `bhai sync`
+  bhai sync         repo se naye tasks kheenchke lagaao, report do
+  bhai watch [sec]  agent mode: har N sec me sync (default 30)
+  bhai run [ID|-]   ek task chalao (ID = tasks/*.json ka naam, '-' = stdin se JSON)
+  bhai up PATH...   file/folder staging karo taaki main use edit kar sakun (-g = push bhi)
+  bhai down [PATH]  mere edits ko original phone location par wapas rakh do
+  bhai push         upload/ + out/ ko repo me commit+push karo
+  bhai ls [DIR]     listing (sizes/mtimes)
+  bhai find GLOB    phone storage me dhoondo
+  bhai du [DIR]     space ka hisaab + sabse bhaari files
+  bhai report       pichhla report paste-ready text me (clipboard me bhi, agar termux-api ho)
+  bhai log [n]      agent log
+  bhai doctor       setup check (storage perms, git, network, branch)
+  bhai auth TOKEN   (optional) push-back enable karo; `bhai auth off`
+  bhai boot on|off  Termux:Boot ke saath watch auto-start
+  bhai config K=V   config set/dekho
+  bhai selfupdate   agent code update
+  bhai hello        ek demo task chalake dekho ki loop kaam kar raha hai
+  bhai uninstall    symlink + state hatao (phone ka koi file delete NAHI karega)
+
+Safety rails
+------------
+  * Write/delete sirf in roots ke andar: /sdcard (shared), $HOME, ~/.bhai, /tmp, repo.
+  * `delete` hard-delete nahi karta -> ~/.bhai/trash/<time>/ me chala jaata hai (`--force` ke bina).
+  * `bhai run --dry` / `bhai sync --dry` = sirf dikhayega, kuch badlega nahi.
+  * Task JSON me "confirm":"<phrase>" ho to terminal par type karke confirm karna padega.
+"""
+
+from __future__ import annotations
+
+import base64
+import fnmatch
+import hashlib
+import json
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import time
+import traceback
+from datetime import datetime
+from pathlib import Path
+
+VERSION = "1.1.0"
+REPO_URL_DEFAULT = "https://github.com/ranumeena133-hue/Build-studio-.git"
+BRANCH_DEFAULT = "arena/01a08283-build-studio"
+
+# ---------------------------------------------------------------- paths / config
+BHAI = Path(os.environ.get("BHAI_HOME") or (Path.home() / ".bhai"))
+REPO = BHAI / "repo"
+UPLOAD = BHAI / "upload"
+OUT = BHAI / "out"
+TRASH = BHAI / "trash"
+LOGS = BHAI / "logs"
+STATE_F = BHAI / "state.json"
+MANIFEST_F = BHAI / "manifest.json"
+CFG_F = BHAI / "config"
+LOG_F = LOGS / "bhai.log"
+
+CFG: dict = {
+    "REPO_URL": REPO_URL_DEFAULT,
+    "BRANCH": BRANCH_DEFAULT,
+    "SHARED": "",            # empty = auto-detect
+    "MAX_MB": "150",         # `up` ke liye per-file size cap
+    "WATCH_SEC": "30",
+    "TIMEOUT": "600",        # ek sh op ka timeout (sec)
+    "DU_BUDGET": "15",       # du/find ka time budget (sec)
+    "NOTIFY": "1",           # watch me termux-notification bhejo
+}
+
+DRY = False
+
+
+def _shared_candidates() -> list[Path]:
+    out = []
+    for c in (
+        Path.home() / "storage" / "shared",
+        Path("/storage/emulated/0"),
+        Path("/sdcard"),
+    ):
+        out.append(c)
+    return out
+
+
+def load_cfg() -> None:
+    if CFG_F.exists():
+        for line in CFG_F.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            CFG[k.strip()] = v.strip()
+    for k in ("REPO_URL", "BRANCH", "SHARED", "MAX_MB"):
+        env = "BHAI_" + k
+        if os.environ.get(env):
+            CFG[env.split("BHAI_", 1)[1]] = os.environ[env]
+    if not CFG.get("SHARED"):
+        for c in _shared_candidates():
+            if c.exists():
+                CFG["SHARED"] = str(c)
+                break
+        else:
+            CFG["SHARED"] = str(_shared_candidates()[0])
+
+
+def save_cfg() -> None:
+    BHAI.mkdir(parents=True, exist_ok=True)
+    CFG_F.write_text(
+        "\n".join(f"{k}={v}" for k, v in CFG.items()) + "\n", encoding="utf-8"
+    )
+
+
+def shared() -> Path:
+    return Path(CFG["SHARED"]).expanduser()
+
+
+def allow_roots() -> list[Path]:
+    roots = [shared(), Path.home(), BHAI, Path("/tmp"), REPO]
+    extra = os.environ.get("BHAI_ALLOW", "")
+    for e in filter(None, extra.split(os.pathsep)):
+        roots.append(Path(e))
+    real = []
+    for r in roots:
+        try:
+            real.append(r.resolve())
+        except Exception:
+            pass
+    # /tmp par often symlink -> also keep the unresolved form
+    real.append(Path("/tmp"))
+    return real
+
+
+def log(msg: str) -> None:
+    try:
+        LOGS.mkdir(parents=True, exist_ok=True)
+        with LOG_F.open("a", encoding="utf-8") as fh:
+            fh.write(f"{datetime.now().isoformat(timespec='seconds')} {msg}\n")
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------- helpers
+def human(n) -> str:
+    try:
+        n = float(n)
+    except Exception:
+        return "?"
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if n < 1024 or unit == "TB":
+            return f"{n:.0f}{unit}" if unit == "B" else f"{n:.1f}{unit}"
+        n /= 1024
+    return f"{n:.1f}TB"
+
+
+def sha256_file(p: Path, cap: int = 1 << 30) -> str:
+    h = hashlib.sha256()
+    with p.open("rb") as fh:
+        got = 0
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+            got += len(chunk)
+            if got >= cap:
+                break
+    return h.hexdigest()
+
+
+def is_safe(target: Path) -> tuple[bool, str]:
+    """Refuse anything outside the allowed roots (symlink-resolved)."""
+    try:
+        t = target.resolve()
+    except Exception as e:  # noqa
+        return False, f"cannot resolve ({e})"
+    for root in allow_roots():
+        try:
+            if t == root or t.relative_to(root):
+                return True, ""
+        except Exception:
+            continue
+        # also allow when the *parent* is inside a root and target doesn't exist yet
+    return False, f"outside allowed roots ({', '.join(str(r) for r in allow_roots()[:3])})"
+
+
+def phone_path(raw) -> Path:
+    """Task paths are relative to shared storage ('DCIM/Camera/x.jpg')."""
+    s = str(raw)
+    if s.startswith("~"):
+        return Path(s).expanduser()
+    if s.startswith("/"):
+        return Path(s)
+    low = s.lstrip("./")
+    for pre in ("shared/", "sdcard/", "storage/emulated/0/"):
+        if low.startswith(pre):
+            low = low[len(pre):]
+            break
+    return (shared() / low).resolve() if not low else shared()
+
+
+def repo_sub(name: str) -> Path:
+    return REPO / name
+
+
+def load_json(p: Path, default):
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return default
+
+
+def dump_json(p: Path, data) -> None:
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(p.suffix + ".tmp")
+    tmp.write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(p)
+
+
+def load_state() -> dict:
+    st = load_json(STATE_F, {})
+    if not isinstance(st, dict):
+        st = {}
+    st.setdefault("applied", [])
+    st.setdefault("last_report", "")
+    return st
+
+
+def save_state(st: dict) -> None:
+    dump_json(STATE_F, st)
+
+
+def load_manifest() -> dict:
+    m = load_json(MANIFEST_F, {})
+    return m if isinstance(m, dict) else {}
+
+
+def save_manifest(m: dict) -> None:
+    dump_json(MANIFEST_F, m)
+
+
+def rel_to_shared(p: Path) -> str:
+    try:
+        return str(Path(p).resolve().relative_to(shared().resolve()))
+    except Exception:
+        return str(p)
+
+
+# ---------------------------------------------------------------- git
+def git(*args, capture=True, check=False, cwd=None):
+    cmd = ["git", "-C", str(cwd or REPO)] + list(args)
+    try:
+        r = subprocess.run(
+            cmd, capture_output=capture, text=True, timeout=180,
+            stdin=subprocess.DEVNULL,
+        )
+    except FileNotFoundError:
+        return 127, "", "git nahi mila - `pkg install git -y` chalao"
+    except subprocess.TimeoutExpired:
+        return 124, "", "git timeout"
+    out = (r.stdout or "").strip() if capture else ""
+    err = (r.stderr or "").strip() if capture else ""
+    if check and r.returncode:
+        raise RuntimeError(err or out or f"git {args[0]} failed")
+    return r.returncode, out, err
+
+
+def ensure_dirs() -> None:
+    for d in (BHAI, UPLOAD, OUT, TRASH, LOGS):
+        d.mkdir(parents=True, exist_ok=True)
+
+
+def have_clone() -> bool:
+    return (REPO / ".git").is_dir()
+
+
+def pull(quiet=False) -> bool:
+    """Always treat the clone as read-only mirror -> hard reset is safe."""
+    ensure_dirs()
+    if not have_clone():
+        REPO.parent.mkdir(parents=True, exist_ok=True)
+        if not quiet:
+            print("· pehli baar clone kar raha hoon ...")
+        code, out, err = git(
+            "clone", "--quiet", "--depth", "50",
+            "-b", CFG["BRANCH"], CFG["REPO_URL"], str(REPO), cwd=BHAI)
+        if code:
+            print(f"! clone fail: {err or out}")
+            print("  network/branch check karo: `bhai doctor`")
+            return False
+    git("fetch", "--quiet", "origin", CFG["BRANCH"])
+    code, out, err = git("rev-parse", "origin/" + CFG["BRANCH"])
+    if code:
+        print(f"! fetch fail (offline?) : {err or out}")
+        return False
+    ref = out
+    git("checkout", "--quiet", "-B", CFG["BRANCH"], ref)
+    git("reset", "--hard", "--quiet", ref)
+    git("clean", "-fdq", "--", "storage", "tasks", "agent")
+    if not quiet:
+        print(f"· repo @{ref[:7]} (branch {CFG['BRANCH']})")
+    return True
+
+
+def push(msg: str = "phone -> repo via bhai") -> bool:
+    ensure_dirs()
+    if not have_clone():
+        print("! clone nahi hai. `bhai sync` pehle.")
+        return False
+    if not CFG.get("PUSH_URL"):
+        print("! push band hai (koi token nahi). Do option:")
+        print("   1) `bhai report` ka output copy karke Arena chat me paste karo, ya")
+        print("   2) `bhai up <file>` ke baad file ko chat me attach kar do.")
+        print("   (chaaho to `bhai auth <token>` se push chalu kar sakte ho - optional)")
+        return False
+    # stage uploads into the clone
+    staged = 0
+    for src in sorted(UPLOAD.rglob("*")):
+        if src.is_file():
+            dst = REPO / "storage" / src.relative_to(UPLOAD)
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            if not dst.exists() or sha256_file(src) != (
+                sha256_file(dst) if dst.exists() else ""
+            ):
+                shutil.copy2(src, dst)
+                staged += 1
+    for src in sorted(OUT.glob("*")):
+        if src.is_file():
+            dst = REPO / "reports" / src.name
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+    git("add", "-A", "storage", "reports")
+    code, out, err = git("status", "--porcelain")
+    if not out:
+        print("· koi naya nahi, push skip.")
+        return True
+    git("-c", "user.name=bhai-agent", "-c", "user.email=agent@localhost",
+        "commit", "-q", "-m", msg)
+    git("fetch", "--quiet", "origin", CFG["BRANCH"])
+    code, out, err = git("rebase", "--quiet", f"origin/{CFG['BRANCH']}")
+    if code:
+        git("rebase", "--abort")
+        print(f"! rebase conflict, push skip. `bhai sync` karke dobara try karo. ({err[:120]})")
+        return False
+    code, out, err = git("push", "--quiet", "origin", f"HEAD:{CFG['BRANCH']}")
+    if code:
+        print(f"! push fail: {(err or out)[:200]}")
+        print("  `bhai auth <fine-grained-token>` se token set karo.")
+        return False
+    print(f"· push ho gaya ({staged} file staged). Ab main dekh lunga.")
+    return True
+
+
+# ---------------------------------------------------------------- task engine
+class R:
+    """report accumulator"""
+
+    def __init__(self):
+        self.lines: list[str] = []
+        self.results: list[dict] = []
+        self.ok = 0
+        self.err = 0
+        self.bytes = 0
+
+    def add(self, status, what, detail=""):
+        rec = {"status": status, "what": what, "detail": str(detail)[:2000]}
+        self.results.append(rec)
+        if status == "ok":
+            self.ok += 1
+        elif status == "err":
+            self.err += 1
+        line = f"  [{status:>3}] {what}"
+        if detail:
+            line += f"  -> {str(detail)[:300].replace(chr(10), ' | ')}"
+        self.lines.append(line)
+        print(line)
+
+    def note(self, text):
+        self.lines.append(f"  · {text}")
+        print(f"  · {text}")
+
+
+def _glob_targets(root: Path, pattern: str, budget: int):
+    """rglob-ish with a time budget (FUSE storage is slow)."""
+    t0 = time.time()
+    hits = []
+    if pattern.startswith("**/"):
+        name_pat = pattern[3:]
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+            for f in filenames:
+                if fnmatch.fnmatch(f, name_pat):
+                    hits.append(Path(dirpath) / f)
+            if time.time() - t0 > budget:
+                hits.append("__TRUNCATED__")
+                break
+    else:
+        try:
+            for p in root.glob(pattern):
+                if p.is_file():
+                    hits.append(p)
+                if time.time() - t0 > budget:
+                    hits.append("__TRUNCATED__")
+                    break
+        except Exception:
+            pass
+    trunc = "__TRUNCATED__" in hits
+    return [h for h in hits if h != "__TRUNCATED__"], trunc
+
+
+def _target_files(op: dict) -> tuple[list[Path], bool]:
+    """Concrete file list for an op: from `path`, or `glob`(+`root`)."""
+    if op.get("path") or op.get("from") or op.get("file"):
+        return [phone_path(op.get("path") or op.get("from") or op.get("file"))], False
+    root = phone_path(op.get("root") or "")
+    pattern = op.get("glob") or op.get("pattern") or "*"
+    hits, trunc = _glob_targets(root, pattern, int(CFG.get("DU_BUDGET", "15")))
+    return hits, trunc
+
+
+# ---- mutation primitives (DRY aware) ----
+def w_text(target: Path, text: str, append=False) -> str:
+    ok, why = is_safe(target)
+    if not ok:
+        raise PermissionError(why)
+    if DRY:
+        return "dry-run (no write)"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    mode = "a" if append else "w"
+    with target.open(mode, encoding="utf-8", newline="") as fh:
+        fh.write(text)
+    return f"{human(target.stat().st_size)}"
+
+
+def w_bytes(target: Path, data: bytes) -> str:
+    ok, why = is_safe(target)
+    if not ok:
+        raise PermissionError(why)
+    if DRY:
+        return "dry-run (no write)"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+    return human(len(data))
+
+
+def rm(target: Path, force=False) -> str:
+    ok, why = is_safe(target)
+    if not ok:
+        raise PermissionError(why)
+    if DRY:
+        return "dry-run (would delete)"
+    if not target.exists():
+        return "already gone"
+    if force:
+        if target.is_dir():
+            shutil.rmtree(target)
+            return "dir deleted (force)"
+        target.unlink()
+        return "deleted (force)"
+    dest = TRASH / str(int(time.time())) / (rel_to_shared(target).replace("/", "__") or "root")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(target), str(dest))
+    return f"trashed -> {dest}"
+
+
+def mv(src: Path, dst: Path) -> str:
+    for p in (src, dst):
+        ok, why = is_safe(p)
+        if not ok:
+            raise PermissionError(why)
+    if DRY:
+        return f"dry-run (would move {src.name} -> {dst})"
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(src), str(dst))
+    return f"-> {dst}"
+
+
+def cp(src: Path, dst: Path) -> str:
+    for p in (src, dst):
+        ok, why = is_safe(p)
+        if not ok:
+            raise PermissionError(why)
+    if DRY:
+        return "dry-run (would copy)"
+    if not src.exists():
+        raise FileNotFoundError(f"source nahi mila: {src}")
+    if src.is_dir():
+        if dst.exists():
+            shutil.rmtree(dst)
+        shutil.copytree(src, dst, symlinks=True)
+        return "dir copied"
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
+    return human(dst.stat().st_size)
+
+
+def do_sh(cmd: str, timeout=None) -> str:
+    tmo = int(timeout or CFG.get("TIMEOUT", "600"))
+    if DRY:
+        return "dry-run (would run shell)"
+    r = subprocess.run(
+        ["bash", "-lc", cmd], capture_output=True, text=True,
+        timeout=tmo, cwd=str(Path.home()),
+    )
+    out = (r.stdout or "") + (("\n[stderr]\n" + r.stderr) if r.stderr else "")
+    out = out.strip()
+    if len(out) > 8000:
+        out = out[:6000] + f"\n...[{len(out)-8000} chars cut]...\n" + out[-1500:]
+    if r.returncode:
+        raise RuntimeError(f"exit {r.returncode}\n{out[:1200]}")
+    return out if out else "ok (no output)"
+
+
+def name_from_pattern(pat: str, f: Path, i: int) -> str:
+    st = f.stat()
+    tokens = {
+        "{n}": f"{i:04d}",
+        "{name}": f.stem,
+        "{ext}": f.suffix.lstrip("."),
+        "{extd}": f.suffix,
+        "{date}": datetime.fromtimestamp(st.st_mtime).strftime("%Y%m%d"),
+        "{time}": datetime.fromtimestamp(st.st_mtime).strftime("%H%M%S"),
+        "{size}": str(st.st_size),
+    }
+    out = pat
+    for k, v in tokens.items():
+        out = out.replace(k, v)
+    return out
+
+
+def apply_step(rep: R, op: dict) -> None:
+    kind = (op.get("op") or op.get("do") or "").lower().strip()
+    if op.get("skip"):
+        rep.add("skip", f"{kind}", op.get("skip"))
+        return
+
+    # ---- ops that never touch storage ----
+    if kind in ("note", "echo"):
+        rep.note(str(op.get("text", "")))
+        return
+    if kind == "sh":
+        cmd = op.get("cmd") or op.get("command") or ""
+        if not cmd:
+            rep.add("err", "sh", "empty cmd")
+            return
+        try:
+            out = do_sh(cmd, op.get("timeout"))
+            rep.add("ok", f"sh `{cmd[:70]}`", out if op.get("show", True) else "(captured)")
+        except Exception as e:
+            rep.add("err", f"sh `{cmd[:70]}`", e)
+        return
+    if kind == "up":
+        # stage files so the agent (me) can edit them
+        paths = op.get("paths") or ([op["path"]] if op.get("path") else [])
+        if not paths:
+            hits, _ = _target_files(op)
+            paths = hits
+        for one in paths:
+            try:
+                n = stage_up(phone_path(one))
+                rep.add("ok", f"up `{rel_to_shared(phone_path(one))}`", f"{n} file staged")
+            except Exception as e:
+                rep.add("err", f"up `{one}`", e)
+        return
+
+    # ---- per-target file ops ----
+    targets, truncated = _target_files(op)
+    if not targets:
+        rep.add("warn", f"{kind}", "koi file match nahi hui")
+        return
+    if len(targets) > 3000 and not op.get("force_many"):
+        rep.add("err", kind, f"{len(targets)} files = bahut zyada; 'glob' chhota karo ya force_many:true")
+        return
+
+    for i, tgt in enumerate(targets, 1):
+        single = dict(op)
+        single["path"] = str(tgt)
+        label = f"{kind} `{rel_to_shared(tgt)}`"
+        try:
+            detail = _apply_file_op(kind, single, tgt, i)
+            rep.add("ok", label if len(targets) == 1 else f"{label} [{i}/{len(targets)}]", detail)
+        except PermissionError as e:
+            rep.add("err", label, f"Safety: {e}")
+        except Exception as e:
+            rep.add("err", label, e)
+    if truncated:
+        rep.note("glob time-budget se truncate hui (aur files ho sakti hain)")
+
+
+def _apply_file_op(kind: str, op: dict, tgt: Path, i: int) -> str:
+    if kind in ("mkdir", "dir"):
+        raw = str(op.get("path") or op.get("from") or "")
+        p = tgt if (raw.endswith("/") or tgt.name.endswith("/") or not tgt.suffix) else tgt.parent
+        ok, why = is_safe(p)
+        if not ok:
+            raise PermissionError(why)
+        if DRY:
+            return "dry-run (would mkdir)"
+        p.mkdir(parents=True, exist_ok=True)
+        return str(p)
+
+    if kind in ("write", "save", "put"):
+        if "content_b64" in op:
+            data = base64.b64decode(op["content_b64"])
+            return w_bytes(tgt, data)
+        text = op.get("content", "")
+        if op.get("crlf"):
+            text = text.replace("\n", "\r\n")
+        return w_text(tgt, str(text))
+
+    if kind in ("append",):
+        return w_text(tgt, str(op.get("content", "")), append=True)
+
+    if kind in ("touch",):
+        if DRY:
+            return "dry-run (would touch)"
+        ok, why = is_safe(tgt)
+        if not ok:
+            raise PermissionError(why)
+        tgt.parent.mkdir(parents=True, exist_ok=True)
+        tgt.touch(exist_ok=True)
+        return "touched"
+
+    if kind in ("replace", "sed", "edit"):
+        if not tgt.exists():
+            raise FileNotFoundError(tgt)
+        txt = tgt.read_text(encoding=op.get("encoding", "utf-8"), errors="replace")
+        find, with_ = str(op.get("find", "")), str(op.get("with", op.get("replace", "")))
+        if not find:
+            raise ValueError("replace me 'find' chahiye")
+        if op.get("regex"):
+            new, n = re.subn(find, with_, txt, count=int(op.get("count", 0)))
+        elif op.get("lines"):
+            # find/with as line numbers: {"find":"7","with":"new line"}
+            ls = txt.splitlines()
+            idx = int(find) - 1
+            if op.get("delete_lines"):
+                del ls[idx]
+                n = 1
+            else:
+                ls[idx] = with_
+                n = 1
+            new = "\n".join(ls) + ("\n" if txt.endswith("\n") else "")
+        else:
+            n = txt.count(find)
+            cnt = int(op.get("count", 0))
+            new = txt.replace(find, with_, cnt if cnt else -1)
+        if n == 0:
+            return "no match (unchanged)"
+        if DRY:
+            return f"dry-run ({n} replacement)"
+        w_text(tgt, new)
+        return f"{n} change(s)"
+
+    if kind in ("copy", "cp"):
+        dst = phone_path(op["to"])
+        if dst.is_dir():                      # dir target -> keep basename
+            dst = dst / tgt.name
+        return cp(tgt, dst)
+
+    if kind in ("move", "mv"):
+        return mv(tgt, phone_path(op["to"]))
+
+    if kind in ("rename",):
+        pat = op.get("pattern") or "{name}{extd}"
+        new = tgt.parent / name_from_pattern(pat, tgt, i)
+        if new == tgt:
+            return "same name"
+        return mv(tgt, new)
+
+    if kind in ("delete", "rm", "remove"):
+        return rm(tgt, bool(op.get("force")))
+
+    if kind in ("extract", "unzip"):
+        if DRY:
+            return "dry-run (would extract)"
+        dest = phone_path(op.get("to") or tgt.with_suffix(""))
+        ok, why = is_safe(dest)
+        if not ok:
+            raise PermissionError(why)
+        dest.mkdir(parents=True, exist_ok=True)
+        import zipfile
+        import tarfile
+        name = tgt.name.lower()
+        if zipfile.is_zipfile(tgt):
+            with zipfile.ZipFile(tgt) as z:
+                for m in z.namelist():
+                    if m.startswith("..") or m.startswith("/"):
+                        continue
+                z.extractall(dest)
+            return f"unzip -> {dest}"
+        if ".tar" in name:
+            with tarfile.open(tgt) as t:
+                t.extractall(dest, filter="data") if sys.version_info >= (3, 12) else t.extractall(dest)
+            return f"untar -> {dest}"
+        raise ValueError("sirf .zip / .tar* support hai")
+
+    if kind in ("compress", "zip"):
+        if DRY:
+            return "dry-run (would zip)"
+        dest = phone_path(op.get("to") or (tgt.parent / (tgt.name + ".zip")))
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        import zipfile
+        with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as z:
+            if tgt.is_dir():
+                for f in tgt.rglob("*"):
+                    if f.is_file():
+                        z.write(f, f.relative_to(tgt))
+            else:
+                z.write(tgt, tgt.name)
+        return f"{dest} ({human(dest.stat().st_size)})"
+
+    if kind == "link":
+        if DRY:
+            return "dry-run"
+        dst = phone_path(op["to"])
+        ok, why = is_safe(dst)
+        if not ok:
+            raise PermissionError(why)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        if dst.is_symlink() or dst.exists():
+            dst.unlink()
+        os.symlink(str(tgt), str(dst))
+        return f"symlink -> {tgt}"
+
+    if kind == "chmod":
+        if DRY:
+            return "dry-run"
+        mode = int(str(op.get("mode", "644")), 8)
+        os.chmod(tgt, mode)
+        return oct(mode)
+
+    if kind in ("download",):
+        # no network needed for the core loop; kept for Termux convenience
+        url, dst = op.get("url"), phone_path(op.get("to") or "Download/" + url.rsplit("/", 1)[-1])
+        return do_sh(f'curl -LfsS -o {shlex.quote(str(dst))} {shlex.quote(url)} && echo ok', op.get("timeout"))
+
+    raise ValueError(f"unknown op: {kind!r}")
+
+
+# ---------------------------------------------------------------- runner
+def task_files() -> list[Path]:
+    d = repo_sub("tasks")
+    if not d.is_dir():
+        return []
+    return sorted(p for p in d.glob("*.json") if not p.name.startswith("."))
+
+
+def run_task_file(path: Path, rep: R, st: dict, force=False) -> bool:
+    task = load_json(path, None)
+    if not isinstance(task, dict):
+        rep.add("err", f"task {path.name}", "valid JSON nahi")
+        return False
+    tid = str(task.get("id") or path.stem)
+    if tid in st["applied"] and not force:
+        return False
+    if DRY:
+        rep.note(f"DRY-RUN task {tid}: {task.get('title', '')}")
+    else:
+        print(f"\n=== task {tid}: {task.get('title', '')} ===")
+    steps = task.get("steps") or task.get("ops") or []
+    confirm = task.get("confirm")
+    if confirm and not DRY:
+        ans = input(f"  ! task {tid} ke liye '{confirm}' type karo (ya 'no'): ").strip()
+        if ans != confirm:
+            rep.add("skip", f"task {tid}", "user cancelled confirm")
+            return False
+    for op in steps:
+        try:
+            apply_step(rep, op)
+        except Exception as e:
+            rep.add("err", f"task {tid}", f"{e}\n{traceback.format_exc()[-400:]}")
+    if not DRY:
+        st["applied"].append(tid)
+        st["applied"] = list(dict.fromkeys(st["applied"]))[-500:]
+    if task.get("receipt") is not False and not DRY:
+        (OUT / f"receipt-{tid}.json").write_text(
+            json.dumps({"task": tid, "at": time.time(), "results": rep.results},
+                       indent=1, ensure_ascii=False), encoding="utf-8")
+    return True
+
+
+def run_queue(rep: R, st: dict, only_id=None, force=False) -> int:
+    ran = 0
+    files = task_files()
+    if not files:
+        rep.note("tasks/ khali hai - abhi koi instruction nahi")
+    for f in files:
+        if only_id and only_id not in (f.stem, f.name):
+            continue
+        if run_task_file(f, rep, st, force):
+            ran += 1
+        if only_id:
+            break
+    if only_id and ran == 0 and not force:
+        # maybe already applied
+        for f in files:
+            if only_id in (f.stem, f.name):
+                rep.add("skip", f"task {only_id}", "pehle bhi apply ho chuka ('--force' se dobara)")
+                ran = -1
+    return ran
+
+
+def stage_up(src: Path) -> int:
+    """copy phone file/dir into ~/.bhai/upload preserving shared-relative path."""
+    ok, why = is_safe(src)
+    if not ok:
+        raise PermissionError(why)
+    if not src.exists():
+        raise FileNotFoundError(f"{src} nahi mila")
+    rel = rel_to_shared(src)
+    dst = UPLOAD / rel
+    maxb = int(float(CFG.get("MAX_MB", "150"))) * 1024 * 1024
+    man = load_manifest()
+    n = 0
+    if src.is_file():
+        files = [src]
+        droot, sroot = dst.parent, src.parent
+    else:
+        files = [p for p in sorted(src.rglob("*")) if p.is_file()]
+        droot, sroot = dst, src
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    skipped = []
+    for f in files:
+        if f.stat().st_size > maxb:
+            skipped.append(f"{f.name} ({human(f.stat().st_size)})")
+            continue
+        t = droot / f.relative_to(sroot) if f != src else dst
+        t.parent.mkdir(parents=True, exist_ok=True)
+        h = sha256_file(f)
+        key = rel_to_shared(f)
+        if man.get(key, {}).get("sha256") == h and t.exists():
+            continue
+        shutil.copy2(f, t)
+        man[key] = {
+            "sha256": h, "size": f.stat().st_size,
+            "mtime": int(f.stat().st_mtime), "phone_path": str(f),
+        }
+        n += 1
+    save_manifest(man)
+    if skipped:
+        print(f"  · skip (MAX_MB={CFG['MAX_MB']}): {', '.join(skipped[:6])}")
+    print(f"  {n} file staged -> {UPLOAD}")
+    print("  ab chat me bolo 'bhai storage/ dekh' ya `bhai push` chalao.")
+    return n
+
+
+def cmd_sync(rep: R, st: dict, only=None, force=False, no_pull=False) -> None:
+    if not no_pull:
+        if not pull():
+            rep.note("pull fail (offline?) - jo tasks pehle se hain unpar chalata hoon")
+    ran = run_queue(rep, st, only_id=only, force=force)
+    if ran > 0:
+        save_state(st)
+        notify(rep)
+    if not DRY:
+        st["last_report"] = write_report(rep)
+
+
+def write_report(rep: R) -> str:
+    head = [
+        f"bhai report v{VERSION}  ·  {datetime.now().isoformat(timespec='seconds')}",
+        f"device: {os.environ.get('TERMUX_APP_PACKAGE', 'termux')} · android: "
+        f"{os.popen('getprop ro.build.version.release 2>/dev/null').read().strip() or '?'}",
+        f"shared: {shared()} · dry={DRY}",
+    ]
+    body = rep.lines
+    tail = [f"summary: {rep.ok} ok · {rep.err} err"]
+    txt = "\n".join(head + body + tail)
+    OUT.mkdir(parents=True, exist_ok=True)
+    (OUT / "latest.txt").write_text(txt + "\n", encoding="utf-8")
+    (OUT / f"report-{int(time.time())}.txt").write_text(txt + "\n", encoding="utf-8")
+    (OUT / "report.json").write_text(
+        json.dumps({"at": time.time(), "ok": rep.ok, "err": rep.err,
+                    "results": rep.results}, indent=1, ensure_ascii=False) + "\n",
+        encoding="utf-8")
+    return txt
+
+
+def notify(rep: R) -> None:
+    if CFG.get("NOTIFY") != "1" or not shutil.which("termux-notification"):
+        return
+    try:
+        subprocess.run(
+            ["termux-notification", "--title", "bhai: storage change",
+             "--content", f"{rep.ok} ok, {rep.err} err" + (f" · {rep.results[-1]['what'][:60]}" if rep.results else "")],
+            capture_output=True, timeout=10,
+        )
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------- commands
+def c_ls(args) -> None:
+    """FLAGS is set in main(); --recent = newest 60 only."""
+    tgt = phone_path(args[0]) if args else shared()
+    if not tgt.is_dir():
+        tgt = tgt.parent
+    ent = []
+    for p in tgt.iterdir():
+        try:
+            st = p.stat()
+            ent.append((st.st_mtime, st.st_size, p.is_dir(), p.name))
+        except Exception:
+            ent.append((0, 0, p.is_dir(), p.name))
+    ent.sort(reverse=True)
+    if "--recent" in (FLAGS or []):
+        ent = ent[:60]
+    print(f"{tgt}  ({len(ent)} entries)")
+    for mt, sz, isd, name in ent:
+        print(f"  {'d' if isd else '-'} {human(sz):>8}  "
+              f"{datetime.fromtimestamp(mt).strftime('%Y-%m-%d %H:%M')}  {name}")
+
+
+def c_find(args) -> None:
+    pat = args[0] if args else "*"
+    root = phone_path(args[1]) if len(args) > 1 else shared()
+    budget = int(CFG.get("DU_BUDGET", "15"))
+    hits, trunc = _glob_targets(root, pat if pat.startswith("**/") else f"**/{pat}", budget)
+    for h in sorted(hits)[:500]:
+        try:
+            print(f"{human(h.stat().st_size):>9}  {rel_to_shared(h)}")
+        except Exception:
+            print(rel_to_shared(h))
+    print(f"= {len(hits)} match{' (TRUNCATED by time budget)' if trunc else ''}  root={root}")
+
+
+def c_du(args) -> None:
+    root = phone_path(args[0]) if args else shared()
+    budget = int(CFG.get("DU_BUDGET", "15"))
+    t0 = time.time()
+    tot = 0
+    files = 0
+    big: list[tuple[int, Path]] = []
+    subs: dict[str, int] = {}
+    truncated = False
+    minbig = 25 * 1024 * 1024
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+        top = os.path.relpath(dirpath, root).split(os.sep)[0]
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            try:
+                sz = os.stat(fp).st_size
+            except Exception:
+                continue
+            tot += sz
+            files += 1
+            if top != ".":
+                subs[top] = subs.get(top, 0) + sz
+            if sz >= minbig:
+                big.append((sz, Path(fp)))
+            if time.time() - t0 > budget:
+                truncated = True
+                break
+        if truncated:
+            break
+    print(f"root: {root}   scanned: {human(tot)} in {files} files  "
+          f"({'TIME-OUT partial' if truncated else 'complete'})")
+    try:
+        st = os.statvfs(str(root))
+        free = st.f_bavail * st.f_frsize
+        print(f"free on volume: {human(free)} of {human(st.f_blocks * st.f_frsize)}")
+    except Exception:
+        pass
+    if subs:
+        print("\ntop-level folders:")
+        for k, v in sorted(subs.items(), key=lambda x: -x[1])[:20]:
+            print(f"  {human(v):>9}  {k}")
+    if big:
+        print("\nlargest files (>=25MB):")
+        for sz, p in sorted(big, reverse=True)[:15]:
+            print(f"  {human(sz):>9}  {rel_to_shared(p)}")
+
+
+def c_up(args) -> None:
+    go = "-g" in args or "--go" in args
+    args = [a for a in args if not a.startswith("-")]
+    if not args:
+        print("usage: bhai up <path> [path...] [-g]\n"
+              "  path = phone file/folder (~, /sdcard/.., ya shared-relative)")
+        return
+    ensure_dirs()
+    total = 0
+    for a in args:
+        total += stage_up(phone_path(a))
+    if go and total:
+        push(f"phone upload via bhai ({total} file)")
+
+
+def c_down(args) -> None:
+    """put edited repo/storage files back where they came from."""
+    man = load_manifest()
+    src_root = repo_sub("storage")
+    if not src_root.is_dir():
+        print("! repo me storage/ nahi hai abhi")
+        return
+    picked = []
+    only = set(args)
+    for f in sorted(src_root.rglob("*")):
+        if not f.is_file():
+            continue
+        key = str(f.relative_to(src_root))
+        if only and not any(key.startswith(o.lstrip("./")) or key == o for o in only):
+            continue
+        picked.append((key, f))
+    if not picked:
+        print("· wapas rakhne ke liye kuch naya nahi mila")
+        return
+    for key, f in picked:
+        entry = man.get(key, {})
+        dst = Path(entry.get("phone_path") or (shared() / key))
+        old = entry.get("sha256")
+        if old and old == sha256_file(f):
+            print(f"  [=] {key}  (unchanged, skip)")
+            continue
+        try:
+            detail = cp(f, dst)
+            print(f"  [ok] {key} -> {dst}  ({detail})")
+        except Exception as e:
+            print(f"  [err] {key}: {e}")
+
+
+def c_doctor() -> None:
+    print(f"bhai v{VERSION}")
+    print(f"  python     : {sys.version.split()[0]}")
+    print(f"  git        : {git('--version')[1] or 'NOT FOUND -> pkg install git -y'}")
+    sh = shared()
+    print(f"  shared     : {sh}  exists={sh.is_dir()}")
+    if not sh.is_dir():
+        print("               >> `termux-setup-storage` chalao phir restart Termux")
+    else:
+        try:
+            probe = sh / "Download" / ".bhai-probe"
+            probe.parent.mkdir(parents=True, exist_ok=True)
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink()
+            print("  write test : OK (Download/ me likh sakte ho)")
+        except Exception as e:
+            print(f"  write test : FAIL - {e}")
+    print(f"  repo       : {CFG['REPO_URL']}  branch={CFG['BRANCH']}")
+    print(f"  clone      : {'yes' if have_clone() else 'no (bhai sync pehle bana dega)'}")
+    code, out, err = git("ls-remote", "--heads", CFG["REPO_URL"], CFG["BRANCH"])
+    print(f"  network    : {'OK - repo visible' if code == 0 and out else 'FAIL: ' + (err or 'no net')[:120]}")
+    print(f"  push token : {'configured' if CFG.get('PUSH_URL') else 'none (report paste karna - optional)'}")
+    for d in ("termux-clipboard-set", "termux-notification", "termux-api"):
+        print(f"  {d:<13}: {'ok' if shutil.which(d) else '-'}")
+    try:
+        st = os.statvfs(str(sh))
+        print(f"  free space : {human(st.f_bavail * st.f_frsize)}")
+    except Exception:
+        pass
+    print("\nagent ko kuch bhi karana ho: chat me bolo -> main tasks/000x.json bhejunga -> `bhai sync`")
+
+
+def c_boot(on: bool) -> None:
+    d = Path.home() / ".termux" / "boot"
+    f = d / "bhai-watch.sh"
+    if on:
+        d.mkdir(parents=True, exist_ok=True)
+        f.write_text("#!/data/data/com.termux/files/usr/bin/bash\ntermux-wake-lock\n"
+                     f"sleep 8\nnohup $(command -v bhai || echo {Path(sys.argv[0]).resolve()}) watch >/dev/null 2>&1 &\n",
+                     encoding="utf-8")
+        f.chmod(0o700)
+        print(f"boot script: {f}")
+        print("note: app 'Termux:Boot' install karo (F-Droid) taaki reboot ke baad chale")
+    else:
+        if f.exists():
+            f.unlink()
+        print("boot script hata diya")
+
+
+def c_auth(arg: str | None) -> None:
+    if not arg or arg.lower() == "off":
+        CFG.pop("PUSH_URL", None)
+        save_cfg()
+        git("remote", "set-url", "origin", CFG["REPO_URL"])
+        print("push off. phone->repo ke liye `bhai report` paste karo ya file attach karo.")
+        return
+    # fine-grained PAT with Contents:write on this repo
+    url = f"https://x-access-token:{arg}@github.com/" + CFG["REPO_URL"].split("github.com/", 1)[1]
+    CFG["PUSH_URL"] = url
+    save_cfg()
+    git("remote", "set-url", "origin", url)
+    print("push URL set (token sirf phone par ~/.bhai/config me save hua hai). Test: bhai push")
+
+
+def c_config(args) -> None:
+    if not args:
+        print(f"# {CFG_F}")
+        for k, v in sorted(CFG.items()):
+            print(f"  {k}={v}")
+        return
+    for a in args:
+        if "=" in a:
+            k, v = a.split("=", 1)
+            CFG[k.strip()] = v.strip()
+        else:
+            print(f"{a}={CFG.get(a, '')}")
+    save_cfg()
+    print("saved.")
+
+
+def c_uninstall() -> None:
+    print("Sirf agent ka apna setup hatayenge - phone ka koi file/folder delete NAHI hoga.")
+    ans = input("  type 'yes' to continue: ").strip()
+    if ans != "yes":
+        print("cancel.")
+        return
+    for cand in (Path(os.environ.get("PREFIX", "/data/data/com.termux/files/usr")) / "bin" / "bhai",
+                 Path.home() / ".local" / "bin" / "bhai"):
+        if cand.is_symlink() or cand.exists():
+            try:
+                cand.unlink()
+                print(f"  removed {cand}")
+            except Exception as e:
+                print(f"  {cand}: {e}")
+    c_boot(False)
+    print(f"  state/clone yahan pade hain (khud hata dena agar chahiye): {BHAI}")
+
+
+def c_hello() -> None:
+    ensure_dirs()
+    rep = R()
+    st = load_state()
+    demo = {
+        "id": "demo-hello", "title": "bhai loop test",
+        "steps": [
+            {"op": "note", "text": "demonstration - koi delete nahi, sirf Download/BuildStudio/ me 2 chhote file"},
+            {"op": "mkdir", "path": "Download/BuildStudio"},
+            {"op": "write", "path": "Download/BuildStudio/hello-from-agent.txt",
+             "content": f"Agar yeh file dikh rahi hai to bridge chal raha hai.\nversion {VERSION}\ntime {datetime.now().isoformat()}\n"},
+            {"op": "sh", "cmd": f"df -h {shlex.quote(str(shared()))} | tail -1"},
+            {"op": "sh", "cmd": "getprop ro.product.model 2>/dev/null || uname -a"},
+        ],
+    }
+    for op in demo["steps"]:
+        apply_step(rep, op)
+    write_report(rep)
+    print("\nAb phone me /Download/BuildStudio/hello-from-agent.txt kholo. Mil gayi? Loop ready. ✅")
+
+
+# ---------------------------------------------------------------- clipboard-ish
+def c_report(args) -> None:
+    f = OUT / "latest.txt"
+    txt = f.read_text(encoding="utf-8") if f.exists() else "(koi report nahi)"
+    print(txt)
+    if "--copy" in args and shutil.which("termux-clipboard-set"):
+        subprocess.run(["termux-clipboard-set"], input=txt.encode(), capture_output=True)
+        print("\n[clipboard me copy ho gaya - ab Arena chat me paste karo]")
+    else:
+        print("\n[a upar se copy karke chat me paste kar do  ·  file: ~/.bhai/out/latest.txt]")
+
+
+USAGE = __doc__
+
+
+FLAGS: list[str] = []
+
+
+def main(argv) -> int:
+    global DRY, FLAGS
+    args = argv[1:]
+    flags = [a for a in args if a.startswith("-")]
+    pos = [a for a in args if not a.startswith("-")]
+    DRY = "--dry" in flags or "--dry-run" in flags
+    FLAGS = flags
+    load_cfg()
+    ensure_dirs()
+    cmd = pos[0] if pos else "sync"
+    rest = pos[1:]
+    log(f"$ {' '.join(args)}  (dry={DRY})")
+
+    if cmd in ("-h", "--help", "help"):
+        print(USAGE)
+        return 0
+    if cmd in ("version", "--version", "-V"):
+        print(f"bhai v{VERSION}  (repo {CFG['REPO_URL']} @ {CFG['BRANCH']})")
+        return 0
+    if cmd in ("selfupdate", "update"):
+        if not have_clone():
+            print("! clone nahi hai, pehle `bhai sync`")
+            return 1
+        code, out, err = git("fetch", "--quiet", "origin", CFG["BRANCH"])
+        git("reset", "--hard", "--quiet", "origin/" + CFG["BRANCH"])
+        print("agent updated (repo se). Ab:  bhai version")
+        return 0
+    if cmd == "pull":
+        return 0 if pull() else 1
+    if cmd == "push":
+        return 0 if push(" ".join(rest) or "phone -> repo via bhai") else 1
+    if cmd == "doctor":
+        c_doctor()
+        return 0
+    if cmd == "boot":
+        c_boot((rest[0] if rest else "on").lower() != "off")
+        return 0
+    if cmd == "auth":
+        c_auth(rest[0] if rest else None)
+        return 0
+    if cmd == "config":
+        c_config(rest)
+        return 0
+    if cmd == "uninstall":
+        c_uninstall()
+        return 0
+    if cmd == "hello":
+        c_hello()
+        return 0
+    if cmd == "ls":
+        c_ls(rest)
+        return 0
+    if cmd == "find":
+        c_find(rest)
+        return 0
+    if cmd in ("du", "space"):
+        c_du(rest)
+        return 0
+    if cmd == "up":
+        c_up(rest)
+        return 0
+    if cmd in ("down", "restore"):
+        c_down(rest)
+        return 0
+    if cmd == "report":
+        c_report(flags)
+        return 0
+    if cmd == "log":
+        n = int(rest[0]) if rest and rest[0].isdigit() else 40
+        if LOG_F.exists():
+            print("\n".join(LOG_F.read_text(encoding="utf-8", errors="replace").splitlines()[-n:]))
+        else:
+            print("(no log)")
+        return 0
+    if cmd == "run":
+        rep = R()
+        st = load_state()
+        arg = rest[0] if rest else None
+        if arg == "-":
+            raw = sys.stdin.read()
+            if not raw.strip():
+                print("usage: bhai run <taskID>   |   cat task.json | bhai run -")
+                return 2
+            data = json.loads(raw)
+            tmp = BHAI / f"stdin-task-{int(time.time())}.json"
+            dump_json(tmp, data)
+            run_task_file(tmp, rep, st, force="--force" in flags)
+            tmp.unlink(missing_ok=True)
+        elif arg:
+            n = run_queue(rep, st, only_id=arg, force=True)
+            if n == 0:
+                print(f"! task {arg} tasks/ me nahi mila. `bhai pull` karo; list: {[f.name for f in task_files()]}")
+        else:
+            print("usage: bhai run <taskID>   |   echo '<json>' | bhai run -   (--dry pehle dekho)")
+            return 2
+        if not DRY:
+            save_state(st)
+            write_report(rep)
+        return 0 if rep.err == 0 else 1
+    if cmd == "sync":
+        rep = R()
+        st = load_state()
+        cmd_sync(rep, st, force="--force" in flags)
+        print("\n" + "=" * 58)
+        print(f"DONE  {rep.ok} ok · {rep.err} err · {len(rep.results)} step")
+        if rep.err:
+            print("  error details: `bhai report`")
+        if not DRY:
+            print("  paste-ready report: `bhai report --copy`")
+        return 0
+    if cmd == "watch":
+        sec = int(rest[0]) if rest and rest[0].isdigit() else int(CFG.get("WATCH_SEC", "30"))
+        print(f"watch mode ON (har {sec}s) · Ctrl-C se rok do  · shared={shared()}")
+        try:
+            while True:
+                rep = R()
+                st = load_state()
+                try:
+                    cmd_sync(rep, st)
+                except Exception as e:
+                    print(f"! loop error: {e}")
+                    log("watch: " + traceback.format_exc()[-500:])
+                if rep.ok or rep.err:
+                    print(f"--- {rep.ok} ok / {rep.err} err ---")
+                time.sleep(sec)
+        except KeyboardInterrupt:
+            print("\nwatch band.")
+        return 0
+    print(f"unknown command: {cmd}\n")
+    print(USAGE[:1600])
+    return 2
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main(sys.argv))
+    except KeyboardInterrupt:
+        sys.exit(130)

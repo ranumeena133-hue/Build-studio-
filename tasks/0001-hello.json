@@ -1,0 +1,15 @@
+{
+  "id": "0001-hello",
+  "title": "setup verify + storage survey (safe, kuch delete nahi)",
+  "steps": [
+    { "op": "note", "text": "Yeh task sirf bridge test karta hai. 2 chhoti files Download/BuildStudio/ me banengi." },
+    { "op": "mkdir", "path": "Download/BuildStudio/" },
+    { "op": "write", "path": "Download/BuildStudio/README-agent.txt",
+      "content": "Build Studio <-> Termux agent\n================================\nYeh folder agent ka drop-box hai. Jo bhi main (Arena chat wala agent) yahan likhta hoon, woh\nphone par yahi milega.\n\nRoz ke commands:\n  bhai sync     - naye instructions uthaake apply karo\n  bhai watch    - har 30 second me auto-sync (agent mode)\n  bhai up FILE  - file mujhe bhejo taaki main edit karun\n  bhai down     - mere edits original jagah wapas\n  bhai du       - space ka hisaab\n  bhai report   - summary (mujhe chat me paste kardo)\n  bhai doctor   - sab thik hai?\n\nSabse bura case: kuch galat lage to\n  ls ~/.bhai/trash     -> delete hui cheezein yahin hain, wapas le lo\n" },
+    { "op": "sh", "cmd": "echo \"device: $(getprop ro.product.model 2>/dev/null || uname -m)  android: $(getprop ro.build.version.release 2>/dev/null)\"" },
+    { "op": "sh", "cmd": "df -h ~/storage/shared 2>/dev/null | tail -1 || echo 'df nahi chala'" },
+    { "op": "sh", "cmd": "for d in DCIM Pictures Movies Download WhatsApp Music Documents; do p=~/storage/shared/$d; [ -d \"$p\" ] && printf '%-12s %s files\\n' \"$d\" \"$(find \"$p\" -type f 2>/dev/null | wc -l)\"; done", "show": true },
+    { "op": "sh", "cmd": "echo 'agent version:'; bhai version 2>/dev/null || ~/.bhai/repo/agent/bhai version" },
+    { "op": "write", "path": "Download/BuildStudio/ok.txt", "content": "bridge OK\n" }
+  ]
+}
