@@ -299,19 +299,28 @@ def pull(quiet=False) -> bool:
         if not quiet:
             print("· pehli baar clone kar raha hoon ...")
         code, out, err = git(
-            "clone", "--quiet", "--depth", "50",
+            "clone", "--quiet", "--depth", "50", "--single-branch",
             "-b", CFG["BRANCH"], CFG["REPO_URL"], str(REPO), cwd=BHAI)
         if code:
             print(f"! clone fail: {err or out}")
             print("  network/branch check karo: `bhai doctor`")
             return False
-    git("fetch", "--quiet", "origin", CFG["BRANCH"])
-    code, out, err = git("rev-parse", "origin/" + CFG["BRANCH"])
-    if code:
-        print(f"! fetch fail (offline?) : {err or out}")
+    # explicit refspec -> origin/<branch> ref hamesha bane, chahe clone kaise bhi bana ho
+    b = CFG["BRANCH"]
+    depth = ["--depth", "50"] if (REPO / ".git" / "shallow").exists() else []
+    git("config", "remote.origin.fetch", f"+refs/heads/{b}:refs/remotes/origin/{b}")
+    code, out, err = git("fetch", "--quiet", *depth, "origin",
+                         f"+refs/heads/{b}:refs/remotes/origin/{b}")
+    code2, ref, err2 = git("rev-parse", "FETCH_HEAD")
+    if code or code2 or not ref:
+        print(f"! fetch fail (offline?) : {(err or err2 or out)[:160]}")
         return False
-    ref = out
-    git("checkout", "--quiet", "-B", CFG["BRANCH"], ref)
+    code, head, _ = git("rev-parse", "HEAD")
+    if not code and head == ref:
+        if not quiet:
+            print(f"· already latest (repo @{ref[:7]}, branch {b})")
+        return True
+    git("checkout", "--quiet", "-B", b, ref)
     git("reset", "--hard", "--quiet", ref)
     git("clean", "-fdq", "--", "storage", "tasks", "agent")
     if not quiet:
@@ -862,8 +871,24 @@ def stage_up(src: Path) -> int:
     if skipped:
         print(f"  · skip (MAX_MB={CFG['MAX_MB']}): {', '.join(skipped[:6])}")
     print(f"  {n} file staged -> {UPLOAD}")
-    print("  ab chat me bolo 'bhai storage/ dekh' ya `bhai push` chalao.")
+    print("  Ab 2 raaste:")
+    print("   A) chat me file attach kar do (Arena use storage/ me rakh deta hai) - main edit kar dunga")
+    print("   B) `bhai push` (agar `bhai auth <token>` set hai) - seedha repo me")
+    print("  Mere edit ke baad: `bhai sync && bhai down`")
     return n
+
+
+def find_by_name(root: Path, name: str):
+    for c in (root / name, root / "storage" / name):
+        if c.is_file():
+            return c
+    try:
+        for p in root.rglob(name):
+            if p.is_file():
+                return p
+    except Exception:
+        pass
+    return None
 
 
 def cmd_sync(rep: R, st: dict, only=None, force=False, no_pull=False) -> None:
@@ -1019,7 +1044,7 @@ def c_down(args) -> None:
     picked = []
     only = set(args)
     for f in sorted(src_root.rglob("*")):
-        if not f.is_file():
+        if not f.is_file() or ".tmp" in f.suffixes:
             continue
         key = str(f.relative_to(src_root))
         if only and not any(key.startswith(o.lstrip("./")) or key == o for o in only):
@@ -1030,9 +1055,16 @@ def c_down(args) -> None:
         return
     for key, f in picked:
         entry = man.get(key, {})
+        if not f.exists():
+            # Arena chat se attach ki hui files flat aati hain -> naam se dhoondo
+            alt = find_by_name(src_root, Path(key).name)
+            if not alt:
+                print(f"  [?] {key}  (repo/storage me nahi mila)")
+                continue
+            f = alt
         dst = Path(entry.get("phone_path") or (shared() / key))
-        old = entry.get("sha256")
-        if old and old == sha256_file(f):
+        prev = entry.get("sha256")
+        if prev and prev == sha256_file(f):
             print(f"  [=] {key}  (unchanged, skip)")
             continue
         try:

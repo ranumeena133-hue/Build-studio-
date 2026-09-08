@@ -1,25 +1,101 @@
 {
   "id": "0002-selftest",
-  "title": "agent self-test (sirf Download/BuildStudio/selftest/ ke andar, ant me khud saaf)",
+  "title": "agent self-test (safest: sirf Download/BuildStudio/selftest/ me, ant me khud delete)",
   "steps": [
-    { "op": "mkdir", "path": "Download/BuildStudio/selftest/" },
-    { "op": "write", "path": "Download/BuildStudio/selftest/alpha.txt", "content": "line one\nold=keep me\nline three\nold=keep me too\n" },
-    { "op": "write", "path": "Download/BuildStudio/selftest/beta.txt", "content": "beta\n" },
-    { "op": "copy", "path": "Download/BuildStudio/selftest/alpha.txt", "to": "Download/BuildStudio/selftest/copy-of-alpha.txt" },
-    { "op": "replace", "path": "Download/BuildStudio/selftest/alpha.txt", "find": "old", "with": "NEW" },
-    { "op": "replace", "glob": "**/*.txt", "root": "Download/BuildStudio/selftest", "find": "NEW", "with": "NEW!" },
-    { "op": "rename", "root": "Download/BuildStudio/selftest", "glob": "**/beta.txt", "pattern": "{name}-renamed{extd}" },
-    { "op": "move", "path": "Download/BuildStudio/selftest/copy-of-alpha.txt", "to": "Download/BuildStudio/selftest/moved.txt" },
-    { "op": "append", "path": "Download/BuildStudio/selftest/moved.txt", "content": "appended\n" },
-    { "op": "delete", "path": "Download/BuildStudio/selftest/moved.txt" },
-    { "op": "write", "path": "Download/BuildStudio/selftest/pack/me.txt", "content": "zipped me\n" },
-    { "op": "compress", "path": "Download/BuildStudio/selftest/pack", "to": "Download/BuildStudio/selftest/pack.zip" },
-    { "op": "extract", "path": "Download/BuildStudio/selftest/pack.zip", "to": "Download/BuildStudio/selftest/unpacked" },
-    { "op": "sh", "cmd": "cd ~/storage/shared/Download/BuildStudio/selftest && ls -1 && echo '--- moved.txt kaam karna chahiye (trash me):' && ls ~/.bhai/trash/*/ | head -3" },
-    { "op": "write", "path": "/etc/passwd", "content": "hack\n" },
-    { "op": "delete", "path": "../../etc/hosts", "force": true },
-    { "op": "sh", "cmd": "cat ~/storage/shared/Download/BuildStudio/selftest/alpha.txt", "show": true },
-    { "op": "delete", "path": "Download/BuildStudio/selftest", "force": true },
-    { "op": "note", "text": "selftest done - ek bhi step 'err' na ho (Safety err expected hai) to agent 100% fit hai" }
+    {
+      "op": "mkdir",
+      "path": "Download/BuildStudio/selftest/"
+    },
+    {
+      "op": "write",
+      "path": "Download/BuildStudio/selftest/alpha.txt",
+      "content": "line one\nold=keep me\nline three\nold=keep me too\n"
+    },
+    {
+      "op": "write",
+      "path": "Download/BuildStudio/selftest/beta.txt",
+      "content": "beta\n"
+    },
+    {
+      "op": "copy",
+      "path": "Download/BuildStudio/selftest/alpha.txt",
+      "to": "Download/BuildStudio/selftest/copy-of-alpha.txt"
+    },
+    {
+      "op": "replace",
+      "path": "Download/BuildStudio/selftest/alpha.txt",
+      "find": "old",
+      "with": "NEW"
+    },
+    {
+      "op": "replace",
+      "glob": "**/*.txt",
+      "root": "Download/BuildStudio/selftest",
+      "find": "NEW",
+      "with": "NEW!"
+    },
+    {
+      "op": "rename",
+      "root": "Download/BuildStudio/selftest",
+      "glob": "**/beta.txt",
+      "pattern": "{name}-renamed{extd}"
+    },
+    {
+      "op": "move",
+      "path": "Download/BuildStudio/selftest/copy-of-alpha.txt",
+      "to": "Download/BuildStudio/selftest/moved.txt"
+    },
+    {
+      "op": "append",
+      "path": "Download/BuildStudio/selftest/moved.txt",
+      "content": "appended\n"
+    },
+    {
+      "op": "delete",
+      "path": "Download/BuildStudio/selftest/moved.txt"
+    },
+    {
+      "op": "write",
+      "path": "Download/BuildStudio/selftest/pack/me.txt",
+      "content": "zipped me\n"
+    },
+    {
+      "op": "compress",
+      "path": "Download/BuildStudio/selftest/pack",
+      "to": "Download/BuildStudio/selftest/pack.zip"
+    },
+    {
+      "op": "extract",
+      "path": "Download/BuildStudio/selftest/pack.zip",
+      "to": "Download/BuildStudio/selftest/unpacked"
+    },
+    {
+      "op": "sh",
+      "cmd": "cd ~/storage/shared/Download/BuildStudio/selftest && ls -1 && echo '--- moved.txt kaam karna chahiye (trash me):' && ls ~/.bhai/trash/*/ | head -3"
+    },
+    {
+      "op": "write",
+      "path": "/etc/passwd",
+      "content": "hack\n"
+    },
+    {
+      "op": "delete",
+      "path": "../../etc/hosts",
+      "force": true
+    },
+    {
+      "op": "sh",
+      "cmd": "cat ~/storage/shared/Download/BuildStudio/selftest/alpha.txt",
+      "show": true
+    },
+    {
+      "op": "delete",
+      "path": "Download/BuildStudio/selftest",
+      "force": true
+    },
+    {
+      "op": "note",
+      "text": "selftest done. 2 'err' LINES EXPECTED HAIN - woh do safety tests hain (/etc/passwd write + '../' traversal) jo BLOCK hote dikhaane ke liye. Baaki sab 'ok' = agent fit."
+    }
   ]
 }
