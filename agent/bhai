@@ -1035,6 +1035,7 @@ def c_map(args) -> None:
         print("! survey.sh nahi mila - pehle `bhai pull`")
         return
     out = str(shared() / "Download" / "BuildStudio" / "storage-map.txt")
+    print("~ survey chal raha hai (bade storage par 1-4 min lag sakte hain) ...")
     r = subprocess.run(["bash", str(sh), out], capture_output=True, text=True, timeout=1200)
     print((r.stdout or "").strip() or (r.stderr or "no output")[:500])
     print(f"\nfile: {out}")

@@ -22,7 +22,7 @@ mkdir -p "$(dirname "$OUT")" 2>/dev/null
 # T <seconds> <cmd...>  ->  time-bounded, errors chup, kabhi crash nahi
 T() { local t=${1:-90}; shift; timeout "$t" "$@" 2>/dev/null; }
 # N <cmd...> -> line count
-N() { local n; n=$(T 90 "$@" | wc -l); printf '%s' "${n:-0}"; }
+N() { local n; n=$(T 45 "$@" | wc -l); printf '%s' "${n:-0}"; }
 
 size_lines() {                 # size_lines <find expr...> -> "bytes<TAB>path"
   local out
@@ -59,7 +59,7 @@ MB() { awk -F'\t' '$1>0{printf "  %8.1f MB  %s\n", $1/1048576, $2}'; }
   printf '%-14s %9s %8s  %s\n' FOLDER SIZE FILES LAST-MODIFIED
   for d in DCIM Pictures Movies Download Documents Music Notifications Podcasts Ringtones Alarms Android WhatsApp Telegram, X Docs Google Chrome; do
     p="$SH/$d"; [ -d "$p" ] || continue
-    sz=$(T 120 du -sh "$p" | cut -f1)
+    sz=$(T 60 du -sh "$p" | cut -f1)
     n=$(N find "$p" -type f)
     mt=$(T 5 stat -c '%y' "$p" | cut -d. -f1)
     printf '%-14s %9s %8s  %s\n' "$d" "${sz:-?}" "$n" "${mt:-?}"
@@ -69,7 +69,7 @@ MB() { awk -F'\t' '$1>0{printf "  %8.1f MB  %s\n", $1/1048576, $2}'; }
   size_lines -size +"${BIG_MB}M" | head -20 | MB
   echo
   echo "## files by extension (top 14 by count)"
-  T 150 find "$SH" -type f | sed 's/.*\///' | awk -F. 'NF>1 && length($NF)<9 {print tolower($NF)}' \
+  T 75 find "$SH" -type f | sed 's/.*\///' | awk -F. 'NF>1 && length($NF)<9 {print tolower($NF)}' \
     | sort | uniq -c | sort -rn | head -14 | sed 's/^/  /'
   echo
   echo "## media breakdown per folder"
@@ -92,19 +92,19 @@ MB() { awk -F'\t' '$1>0{printf "  %8.1f MB  %s\n", $1/1048576, $2}'; }
     | awk -F'\t' '$1>0{printf "  %10s B  %s\n", $1, $2}'
   echo
   echo "## Download me 1 saal se purane (archive candidates)"
-  T 120 find "$SH/Download" -type f -mtime +365 | head -40 | sed 's/^/  /'
+  T 60 find "$SH/Download" -type f -mtime +365 | head -40 | sed 's/^/  /'
   echo
   echo "## same-size pairs in DCIM (duplicate shak - confirm karke hi hataunga)"
-  dup=$(T 150 find "$SH/DCIM" -type f -size +100k -printf '%s\t%p\n' | sort -n)
+  dup=$(T 75 find "$SH/DCIM" -type f -size +100k -printf '%s\t%p\n' | sort -n)
   if [ -z "${dup//[[:space:]]/}" ]; then
-    dup=$(T 180 find "$SH/DCIM" -type f -size +100k -print | head -300 | while IFS= read -r f; do
+    dup=$(T 90 find "$SH/DCIM" -type f -size +100k -print | head -300 | while IFS= read -r f; do
             s=$(T 10 stat -c '%s' "$f"); [ -n "$s" ] && printf '%s\t%s\n' "$s" "$f"
           done | sort -n)
   fi
   printf '%s\n' "$dup" | awk -F'\t' 'c[$1]++==1{printf "  [%s B]:\n",$1} c[$1]>1{printf "    %s\n",$2}' | head -30
   echo
   echo "## termux home"
-  T 60 du -sh "$HOME" 2>/dev/null | sed 's/^/  /'
+  T 40 du -sh "$HOME" 2>/dev/null | sed 's/^/  /'
   echo
   echo "# AGENT NOTE: yeh padhke main tumhare liye safe task banaunga."
   echo "# Koi bhi delete/trash task 'confirm' field ke saath aayega - bina word type kiye nahi chalega."
