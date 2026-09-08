@@ -1,0 +1,31 @@
+{
+  "id": "0004-termux-diag",
+  "title": "Termux/pkg/health report (READ-ONLY - pkg install git kyu fail hua, wo pata karega)",
+  "steps": [
+    {
+      "op": "mkdir",
+      "path": "Download/BuildStudio/"
+    },
+    {
+      "op": "sh",
+      "timeout": 300,
+      "cmd": "bash ~/.bhai/repo/agent/diag.sh",
+      "show": false
+    },
+    {
+      "op": "sh",
+      "timeout": 60,
+      "cmd": "sed -n '1,26p' ~/storage/shared/Download/BuildStudio/termux-diag.txt"
+    },
+    {
+      "op": "up",
+      "paths": [
+        "Download/BuildStudio/termux-diag.txt"
+      ]
+    },
+    {
+      "op": "note",
+      "text": "diag stage ho gaya. `bhai report --copy` karke paste karo (ya file attach) - main exact fix batlaunga."
+    }
+  ]
+}

@@ -1128,6 +1128,18 @@ def c_du(args) -> None:
             print(f"  {human(sz):>9}  {rel_to_shared(p)}")
 
 
+def c_diag(args) -> None:
+    sh = REPO / "agent" / "diag.sh"
+    if not sh.is_file():
+        print("! diag.sh nahi mila - `bhai pull --http` (git ke bina bhi ho jayega)")
+        return
+    out = args[0] if args else str(shared() / "Download" / "BuildStudio" / "termux-diag.txt")
+    r = subprocess.run(["bash", str(sh), out], capture_output=True, text=True, timeout=900)
+    print((r.stdout or "").strip()[:3000] or (r.stderr or "no output")[:500])
+    print("\nfile: " + out)
+    print("mujhe bhejo:  bhai up " + rel_to_shared(Path(out)) + "   phir attach/paste")
+
+
 def c_map(args) -> None:
     sh = REPO / "agent" / "survey.sh"
     if not sh.is_file():
@@ -1418,7 +1430,9 @@ def main(argv) -> int:
         print("agent updated (repo se). Ab:  bhai version")
         return 0
     if cmd == "pull":
-        return 0 if pull() else 1
+        if "--http" in FLAGS or CFG.get("SYNC_MODE") == "http":
+            return 0 if http_pull() else 1
+        return 0 if sync_from_remote() else 1
     if cmd == "push":
         return 0 if push(" ".join(rest) or "phone -> repo via bhai") else 1
     if cmd == "doctor":
@@ -1447,6 +1461,9 @@ def main(argv) -> int:
         return 0
     if cmd in ("du", "space"):
         c_du(rest)
+        return 0
+    if cmd == "diag":
+        c_diag(rest)
         return 0
     if cmd in ("map", "survey"):
         c_map(rest)

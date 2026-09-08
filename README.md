@@ -40,6 +40,41 @@ bhai sync      # mere naye instructions lao + lagao
 bhai watch     # agent mode: har 30s me auto-sync (ek session me chhodo mat)
 ```
 
+### `pkg install git` fail ho gaya? (`The program git is not installed`)
+
+**Koi baat nahi — `git` ab optional hai.** Agent repo ka tarball seedha https se kheench leta hai;
+sirf `python3` chahiye (26KB, koi token nahi, koi account nahi):
+
+```bash
+pkg install -y python
+python3 - <<'BOOT'
+import io,os,shutil,tarfile,urllib.request
+U="https://codeload.github.com/ranumeena133-hue/Build-studio-/tar.gz/refs/heads/arena/01a08283-build-studio"
+d=os.path.expanduser("~/.bhai"); os.makedirs(d,exist_ok=True)
+data=urllib.request.urlopen(urllib.request.Request(U,headers={"User-Agent":"bhai"}),timeout=90).read()
+t=tarfile.open(fileobj=io.BytesIO(data)); n=t.getnames()
+try: t.extractall(d+"/.boot",filter="data")
+except TypeError: t.extractall(d+"/.boot")
+shutil.rmtree(d+"/repo",ignore_errors=True)
+shutil.copytree(os.path.join(d,".boot",n[0].split("/")[0]),d+"/repo")
+shutil.rmtree(d+"/.boot",ignore_errors=True); print("repo downloaded:",len(data)//1024,"KB")
+BOOT
+bash ~/.bhai/repo/agent/install.sh
+```
+
+Ho gaya? Ab `bhai sync` chalega (git ke bina). `bhai up <file>` bhi chalega; sirf `bhai push`
+ke liye `git` chahiye — jo tumhe bilkul nahi chahiye, kyunki `bhai report` paste karna kaafi hai.
+
+**`pkg install -y python` bhi toote** (404 / hang / "Unable to locate") — matlab Termux ka mirror
+dead ya lists purani. Fix order:
+```bash
+pkg update                      # lists taaza
+termux-change-repo              # mirror badlo (koi bhi working chuno)
+pkg install -y python           # phir upar wala block
+```
+Phir bhi nahi? `bhai diag` chalao (repo already phone par hai) aur uska output mujhe paste karo —
+exact wajah nikal aayegi (mirror/lock/space/old Termux).
+
 ## 2 Commands
 
 | command | kaam |
@@ -49,6 +84,7 @@ bhai watch     # agent mode: har 30s me auto-sync (ek session me chhodo mat)
 | `bhai up <path>` | apni file/folder staging karo taaki **main edit kar sakun** (`-g` = push bhi) |
 | `bhai down` | mere edits original phone location par wapas rakh do (hash se: sirf badle hue) |
 | `bhai run <id>` | ek task chalao · `echo '<json>' \| bhai run -` = chat se aaya task directly |
+| `bhai diag` | Termux + pkg + network ki health (install toote to yehi) |
 | `bhai ls [dir]` · `bhai find '**/*.mp4'` · `bhai du` | mujhe storage ka naksha dene ke liye |
 | `bhai map` | poora storage survey -> `Download/BuildStudio/storage-map.txt` + stage (read-only) |
 | `echo '<json>' \| bhai run -` | **zero-git mode**: chat se aaya task seedha chalao (network bhi nahi chahiye) |
@@ -89,6 +125,7 @@ Main turant `tasks/NNNN-*.json` likh ke commit karunga. Tumhara `bhai watch` use
 | mode | phone ko kya chahiye | kaise |
 |---|---|---|
 | **pull-only** (default) | `git` + net, koi token nahi | main commit → `bhai sync` / `bhai watch` → `bhai report` paste |
+| **http, `git` ke bina** | sirf `python3` | `SYNC_MODE=http` → `bhai sync` tarball se uthata hai |
 | **zero-net** | kuch nahi | main JSON chat me deta hoon → `echo '<json>' \| bhai run -` |
 | **full-auto** | optional `bhai auth <PAT>` | `bhai up <file> -g` seedha repo me, receipts apne aap |
 
@@ -99,6 +136,7 @@ agent/bhai          # pura agent — python3 stdlib only, ~800 lines, koi pip in
 agent/install.sh    # one-shot bootstrap (Termux)
 agent/TASKS.md      # task JSON ka spec + saare ops
 agent/survey.sh     # 'bhai map' ka engine (read-only storage survey)
+agent/diag.sh       # 'bhai diag' - pkg/mirror/network ka health report
 tasks/*.json        # mera inbox: jo phone par karna hai
 storage/            # file exchange: tumhari files, mere edits
 reports/            # phone ke receipts (push on ho to apne aap aayenge)
@@ -113,7 +151,9 @@ Phone ka apna state (repo ke baahir, isliye `git reset` se safe):
 |---|---|
 | `bhai: command not found` | `source ~/.bashrc` (ya naya session) · verify: `ls -l $PREFIX/bin/bhai` |
 | `Permission denied` on /sdcard | `termux-setup-storage` → Allow → Termux restart → `bhai doctor` |
-| clone/fetch fail | branch delete ho gaya? `bhai config BRANCH=main` · net: `ping github.com` |
+| `git: program not installed` | upar wala **git-free** block (sirf `pkg install python`) |
+| `pkg install` 404/hang | `termux-change-repo` → `pkg update` → retry; `bhai diag` ka output mujhe do |
+| clone/fetch fail | `bhai pull --http` · branch check: `bhai config BRANCH` |
 | push fail / no token | zarurat nahi — `bhai report` ka text mujhe paste kar do |
 | task double-apply? | nahi hoga: `~/.bhai/state.json` me `id` lock hota hai |
 | galti se kuch delete ho gaya | `ls ~/.bhai/trash` → `mv` karke wapas |
