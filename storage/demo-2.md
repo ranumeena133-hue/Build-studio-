@@ -12,10 +12,10 @@
 
 ## 📂 Is waqt server par files:
 
-- 📄  (97,664 B)
-- 📄  (132,631 B)
-- 📄  (7,160 B)
-- 📄  (2,222 B)
+- 📄 `106_5534e96a-5e90-4bdf-ab26-92ae072d270b (1).pdf` (97,664 B) — tumhari PDF
+- 📸 `294 (1).jpg` (132,631 B) — kirana store wali photo
+- 📖 `TERMUX-GUIDE.md` (7,160 B) — complete guide
+- 📋 `termux-commands.txt` (2,222 B) — quick commands
 
 ## 🧪 Ye file test ke liye hai:
 
