@@ -19,10 +19,13 @@ from __future__ import annotations
 
 import io
 import os
+import secrets
 import shutil
 import subprocess
 import threading
+import time
 import zipfile
+from collections import deque
 from datetime import datetime
 from pathlib import Path
 
@@ -46,6 +49,13 @@ RAW_BASE = f"https://raw.githubusercontent.com/ranumeena133-hue/Build-studio-/{B
 AUTO_SYNC = os.environ.get("AUTO_SYNC", "1") == "1"
 
 MAX_UPLOAD = 100 * 1024 * 1024  # 100 MB
+
+# Security / speed tuning (env se badal sakte ho)
+RATE_LIMIT = int(os.environ.get("RATE_LIMIT", "300"))      # max requests/IP/minute
+AUTH_MAX = int(os.environ.get("AUTH_MAX", "5"))            # itne galat token par...
+LOCKOUT_SECS = int(os.environ.get("LOCKOUT_SECS", "600"))  # ...itne sec ke liye IP ban
+START_TIME = time.time()
+STATS = {"total": 0, "blocked": 0, "auth_fail": 0}
 
 mcp = FastMCP(
     "build-studio-files",
@@ -135,6 +145,33 @@ def _raw(path: str) -> str:
 
 def _err(e: Exception) -> str:
     return f"ERROR: {e}"
+
+
+# ---------------- ZIP cache (speed) ----------------
+_zip_cache: dict = {"sig": None, "data": b""}
+
+
+def _zip_signature():
+    return tuple(
+        (str(p), p.stat().st_mtime_ns, p.stat().st_size)
+        for p in sorted(STORAGE.rglob("*"))
+        if p.is_file()
+    )
+
+
+def build_zip() -> bytes:
+    """Sirf tab banata hai jab files badli hon — warna cache se turant. (fast!)"""
+    sig = _zip_signature()
+    if _zip_cache["sig"] == sig:
+        return _zip_cache["data"]
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for p in sorted(STORAGE.rglob("*")):
+            if p.is_file():
+                z.write(p, arcname=_rel(p))
+    _zip_cache["sig"] = sig
+    _zip_cache["data"] = buf.getvalue()
+    return _zip_cache["data"]
 
 
 # ---------------- MCP Tools ----------------
@@ -354,7 +391,14 @@ async def home(request: Request) -> HTMLResponse:
 async def health(request: Request) -> JSONResponse:
     n = sum(1 for p in STORAGE.rglob("*") if p.is_file())
     return JSONResponse(
-        {"ok": True, "files": n, "time": datetime.now().isoformat(timespec="seconds")}
+        {
+            "ok": True,
+            "files": n,
+            "time": datetime.now().isoformat(timespec="seconds"),
+            "uptime_sec": int(time.time() - START_TIME),
+            "requests": STATS["total"],
+            "blocked": STATS["blocked"],
+        }
     )
 
 
@@ -440,14 +484,9 @@ async def pull_now(request: Request) -> JSONResponse:
 
 @mcp.custom_route("/download/all", methods=["GET"])
 async def download_all(request: Request) -> Response:
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        for p in sorted(STORAGE.rglob("*")):
-            if p.is_file():
-                z.write(p, arcname=_rel(p))
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     return Response(
-        buf.getvalue(),
+        build_zip(),
         media_type="application/zip",
         headers={
             "Content-Disposition": f'attachment; filename="build-studio-files-{stamp}.zip"'
@@ -455,29 +494,80 @@ async def download_all(request: Request) -> Response:
     )
 
 
-# ---------------- Auth + App ----------------
-class TokenAuth(BaseHTTPMiddleware):
+# ---------------- Security Guard + App ----------------
+class Guard(BaseHTTPMiddleware):
+    """Rate limit + brute-force lockout + timing-safe auth + security headers."""
     EXEMPT = {"/", "/health"}
 
-    async def dispatch(self, request, call_next):
-        if request.url.path in self.EXEMPT:
-            return await call_next(request)
-        auth_header = request.headers.get("authorization", "")
-        given = (
-            request.query_params.get("token")
-            or request.headers.get("x-token")
-            or auth_header.removeprefix("Bearer ").strip()
-        )
-        if given != TOKEN:
-            return JSONResponse(
-                {"error": "invalid/missing token — ?token=... ya X-Token header bhejo"},
-                status_code=401,
-            )
-        return await call_next(request)
+    def __init__(self, app):
+        super().__init__(app)
+        self.hits: dict[str, deque] = {}
+        self.fails: dict[str, deque] = {}
 
+    def _prune(self, dq: deque, now: float, window: float) -> None:
+        while dq and now - dq[0] > window:
+            dq.popleft()
+
+    async def dispatch(self, request, call_next):
+        ip = request.client.host if request.client else "unknown"
+        now = time.time()
+
+        # -- rate limit (har request, har IP par) --
+        dq = self.hits.setdefault(ip, deque())
+        self._prune(dq, now, 60)
+        if len(dq) >= RATE_LIMIT:
+            STATS["blocked"] += 1
+            return JSONResponse(
+                {"error": "too many requests — thoda ruk ke try karo"},
+                status_code=429, headers={"Retry-After": "30"},
+            )
+        dq.append(now)
+
+        # -- brute-force lockout --
+        fq = self.fails.get(ip)
+        if fq:
+            self._prune(fq, now, LOCKOUT_SECS)
+            if len(fq) >= AUTH_MAX:
+                STATS["blocked"] += 1
+                return JSONResponse(
+                    {"error": f"bahut galat tries — {LOCKOUT_SECS//60} min ke liye blocked"},
+                    status_code=403, headers={"Retry-After": str(LOCKOUT_SECS)},
+                )
+
+        # -- auth (timing-safe) --
+        if request.url.path not in self.EXEMPT:
+            auth_header = request.headers.get("authorization", "")
+            given = (
+                request.query_params.get("token")
+                or request.headers.get("x-token")
+                or auth_header.removeprefix("Bearer ").strip()
+            )
+            if not given or not secrets.compare_digest(given.encode(), TOKEN.encode()):
+                STATS["auth_fail"] += 1
+                fq = self.fails.setdefault(ip, deque())
+                fq.append(now)
+                left = AUTH_MAX - len(fq)
+                return JSONResponse(
+                    {"error": f"invalid/missing token ({max(left,0)} try baaki, phir IP ban)"},
+                    status_code=401,
+                )
+
+        resp = await call_next(request)
+        STATS["total"] += 1
+        # -- security headers --
+        resp.headers["X-Content-Type-Options"] = "nosniff"
+        resp.headers["X-Frame-Options"] = "DENY"
+        resp.headers["Referrer-Policy"] = "no-referrer"
+        if request.url.path not in {"/files", "/download/all"} and not request.url.path.startswith("/files/"):
+            resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+
+from starlette.middleware.gzip import GZipMiddleware  # noqa: E402
 
 app = mcp.streamable_http_app()
-app.add_middleware(TokenAuth)
+app.add_middleware(GZipMiddleware, minimum_size=500)   # chhota+tez transfer
+app.add_middleware(Guard)
 
 
 if __name__ == "__main__":
@@ -486,4 +576,8 @@ if __name__ == "__main__":
     print(f"* Upload page   : {BASE_URL}/")
     print(f"* Health check  : {BASE_URL}/health")
     print(f"* Auto-sync     : {'ON (' + BRANCH + ')' if AUTO_SYNC else 'OFF'}")
-    uvicorn.run(app, host="0.0.0.0", port=PORT, log_level=os.environ.get("LOG_LEVEL", "info"))
+    uvicorn.run(
+        app, host="0.0.0.0", port=PORT,
+        log_level=os.environ.get("LOG_LEVEL", "warning"),
+        access_log=os.environ.get("ACCESS_LOG", "0") == "1",
+    )

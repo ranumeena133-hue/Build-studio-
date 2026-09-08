@@ -98,6 +98,22 @@ curl -L "https://github.com/ranumeena133-hue/Build-studio-/archive/refs/heads/ar
 
 ---
 
+## 🔒 Security & ⚡ Speed (v2 upgrade)
+
+| Feature | Kya karta hai |
+|---|---|
+| Timing-safe token check | Timing-attack se bhi token nahi nikalta (`secrets.compare_digest`) |
+| Brute-force lockout | 5 galat token = IP **10 min** ka ban |
+| Rate limiting | IP per **300 req/min** se zyada = 429 block |
+| Security headers | nosniff, DENY iframe, no-referrer, no-store |
+| Gzip compression | Text responses ~5x chhoti & tez |
+| ZIP cache | Zip sirf files badalne par banta hai, har request par nahi |
+| Health stats | `/health` me uptime, request count, blocked count |
+
+Tuning env vars: `RATE_LIMIT`, `AUTH_MAX`, `LOCKOUT_SECS` (default 300 / 5 / 600)
+
+---
+
 ## ▶️ Server chalana (sandbox ke andar)
 
 ```bash
