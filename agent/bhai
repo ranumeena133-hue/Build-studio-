@@ -1029,6 +1029,18 @@ def c_du(args) -> None:
             print(f"  {human(sz):>9}  {rel_to_shared(p)}")
 
 
+def c_map(args) -> None:
+    sh = REPO / "agent" / "survey.sh"
+    if not sh.is_file():
+        print("! survey.sh nahi mila - pehle `bhai pull`")
+        return
+    out = str(shared() / "Download" / "BuildStudio" / "storage-map.txt")
+    r = subprocess.run(["bash", str(sh), out], capture_output=True, text=True, timeout=1200)
+    print((r.stdout or "").strip() or (r.stderr or "no output")[:500])
+    print(f"\nfile: {out}")
+    print("mujhe bhejne ke liye:  bhai up Download/BuildStudio/storage-map.txt   (phir attach/push)")
+
+
 def c_up(args) -> None:
     go = "-g" in args or "--go" in args
     args = [a for a in args if not a.startswith("-")]
@@ -1325,6 +1337,9 @@ def main(argv) -> int:
         return 0
     if cmd in ("du", "space"):
         c_du(rest)
+        return 0
+    if cmd in ("map", "survey"):
+        c_map(rest)
         return 0
     if cmd == "up":
         c_up(rest)

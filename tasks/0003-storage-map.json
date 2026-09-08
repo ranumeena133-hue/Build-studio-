@@ -1,0 +1,35 @@
+{
+  "id": "0003-storage-map",
+  "title": "storage ka naksha (READ-ONLY - ek bhi file nahi badalti)",
+  "steps": [
+    {
+      "op": "note",
+      "text": "survey.sh chalata hoon; output Download/BuildStudio/storage-map.txt. Kuch move/delete nahi hota."
+    },
+    {
+      "op": "mkdir",
+      "path": "Download/BuildStudio/"
+    },
+    {
+      "op": "sh",
+      "timeout": 600,
+      "cmd": "bash ~/.bhai/repo/agent/survey.sh",
+      "show": false
+    },
+    {
+      "op": "sh",
+      "timeout": 60,
+      "cmd": "sed -n '1,30p' ~/storage/shared/Download/BuildStudio/storage-map.txt"
+    },
+    {
+      "op": "up",
+      "paths": [
+        "Download/BuildStudio/storage-map.txt"
+      ]
+    },
+    {
+      "op": "note",
+      "text": "Ho gaya. Ab chat me bas bolo 'map dekh lo' - main tumhare storage ke hisaab se safe cleanup/organize task banaunga."
+    }
+  ]
+}
