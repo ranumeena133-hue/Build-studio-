@@ -39,15 +39,26 @@ def index():
     return send_from_directory(os.path.join(HERE, "static"), "index.html")
 
 
+def model_available():
+    ckpt_dir = os.path.join(os.path.dirname(HERE), "checkpoints")
+    return any(os.path.exists(os.path.join(ckpt_dir, n)) and os.path.getsize(os.path.join(ckpt_dir, n)) > 100000
+               for n in ("best.pt", "final.pt"))
+
+
 @app.route("/api/status")
 def status():
-    return jsonify({"ready": MODEL is not None, "model": MODEL_NAME})
+    ready = MODEL is not None or model_available()
+    return jsonify({"ready": ready, "model": MODEL_NAME})
 
 
 @app.route("/api/ask", methods=["POST"])
 def ask():
     if MODEL is None:
-        return jsonify({"error": "Model abhi ready nahi hai. Training chalu hai."}), 503
+        if not model_available():
+            return jsonify({"error": "Model abhi ready nahi hai. Training chalu hai."}), 503
+        init_model()  # lazy load on first use after training
+    if MODEL is None:
+        return jsonify({"error": "Model load nahi ho paaya"}), 500
     q = (request.json or {}).get("q", "").strip()
     if not q:
         return jsonify({"error": "Sawal khali hai"}), 400
