@@ -1,0 +1,18 @@
+[
+  {"q": "Ek function likho jo do numbers ka sum (jod) nikale.", "code": "def add(a, b):\n    return a + b\n\nprint(add(3, 5))  # output: 8"},
+  {"q": "Ek function likho jo teen numbers ka multiplication nikale.", "code": "def multiply(a, b, c):\n    return a * b * c\n\nprint(multiply(2, 3, 4))  # output: 24"},
+  {"q": "Ek function likho jo ek number ka square nikale.", "code": "def square(n):\n    return n * n\n\nprint(square(7))  # output: 49"},
+  {"q": "Ek function likho jo number ka factorial nikale.", "code": "def factorial(n):\n    if n <= 1:\n        return 1\n    return n * factorial(n - 1)\n\nprint(factorial(5))  # output: 120"},
+  {"q": "Ek function likho jo do numbers me se bada number return kare.", "code": "def max_of_two(a, b):\n    if a > b:\n        return a\n    return b\n\nprint(max_of_two(12, 8))  # output: 12"},
+  {"q": "Ek function likho jo number even hai ya odd ye batae.", "code": "def is_even(n):\n    if n % 2 == 0:\n        return \"Even\"\n    return \"Odd\"\n\nprint(is_even(4))   # output: Even\nprint(is_even(7))   # output: Odd"},
+  {"q": "Ek function likho jo Celsius ko Fahrenheit me convert kare.", "code": "def celsius_to_fahrenheit(c):\n    return (c * 9 / 5) + 32\n\nprint(celsius_to_fahrenheit(100))  # output: 212.0"},
+  {"q": "Ek function likho jo Fahrenheit ko Celsius me convert kare.", "code": "def fahrenheit_to_celsius(f):\n    return (f - 32) * 5 / 9\n\nprint(fahrenheit_to_celsius(212))  # output: 100.0"},
+  {"q": "Ek function likho jo year leap year hai ya nahi ye batae.", "code": "def is_leap_year(year):\n    if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0):\n        return True\n    return False\n\nprint(is_leap_year(2024))  # output: True\nprint(is_leap_year(2023))  # output: False"},
+  {"q": "Ek function likho jo do numbers ka GCD (greatest common divisor) nikale.", "code": "def gcd(a, b):\n    while b:\n        a, b = b, a % b\n    return a\n\nprint(gcd(48, 18))  # output: 6"},
+  {"q": "Ek function likho jo number ka absolute value nikale bina abs() use kiye.", "code": "def absolute(n):\n    if n < 0:\n        return -n\n    return n\n\nprint(absolute(-5))  # output: 5"},
+  {"q": "Ek function likho jo 1 se n tak ke sabhi numbers ka sum nikale.", "code": "def sum_to_n(n):\n    total = 0\n    for i in range(1, n + 1):\n        total += i\n    return total\n\nprint(sum_to_n(10))  # output: 55"},
+  {"q": "Ek function likho jo do numbers ka percentage nikale: a ka b me se kitna percent.", "code": "def percentage(a, b):\n    return (a / b) * 100\n\nprint(percentage(25, 200))  # output: 12.5"},
+  {"q": "Ek function likho jo compound interest nikale: principal, rate, time ke saath.", "code": "def compound_interest(principal, rate, time):\n    amount = principal * (1 + rate / 100) ** time\n    return amount - principal\n\nprint(compound_interest(1000, 10, 2))  # output: 210.0"},
+  {"q": "Ek function likho jo age se 100 saal me kitne saal bache hai ye nikale.", "code": "def years_left(age):\n    return 100 - age\n\nprint(years_left(25))  # output: 75"},
+  {"q": "Ek function likho jo BMI nikale: weight kg me aur height meter me.", "code": "def calculate_bmi(weight, height):\n    return weight / (height ** 2)\n\nprint(calculate_bmi(70, 1.75))  # output: ~22.86"}
+]

@@ -1,0 +1,5 @@
+
+# ML project heavy artifacts
+.venv/
+__pycache__/
+*.pyc

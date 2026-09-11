@@ -1,0 +1,11 @@
+# heavy / regenerable artifacts
+data/*.bin
+data/docs_train.jsonl
+data/docs_dev.jsonl
+checkpoints/step_*.pt
+checkpoints/train_log.jsonl
+__pycache__/
+*.pyc
+reports/train.log
+reports/build_data.log
+.venv/

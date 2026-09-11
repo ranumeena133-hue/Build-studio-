@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HindiAI Coder — आपका अपना कोडिंग AI</title>
+<style>
+  :root {
+    --bg: #0b1020; --panel: #121a33; --panel2: #0f1530;
+    --accent: #4f8cff; --accent2: #7c5cff; --text: #e8ecf8; --dim: #93a0c2;
+    --ok: #2ecc71; --err: #ff5c6c; --code-bg: #0a0f1f;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 80% -10%, #1b2a5e 0%, var(--bg) 55%);
+    color: var(--text);
+    font-family: "Noto Sans Devanagari", "Mangal", "Segoe UI", system-ui, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column;
+  }
+  header {
+    padding: 18px 24px; display: flex; align-items: center; gap: 14px;
+    border-bottom: 1px solid #1e2a52; background: rgba(11,16,32,.7); backdrop-filter: blur(8px);
+    position: sticky; top: 0; z-index: 5;
+  }
+  .logo {
+    width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--accent), var(--accent2)); font-size: 22px;
+  }
+  header h1 { font-size: 20px; }
+  header .sub { color: var(--dim); font-size: 13px; }
+  #badge {
+    margin-left: auto; font-size: 12px; padding: 6px 12px; border-radius: 999px;
+    background: #1a2447; color: var(--dim); border: 1px solid #24305e;
+  }
+  #badge.ready { color: #8fe3b0; border-color: #1f5c3a; }
+  main { flex: 1; width: 100%; max-width: 860px; margin: 0 auto; padding: 20px 16px 120px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .chip {
+    background: var(--panel); border: 1px solid #24305e; color: var(--text);
+    padding: 8px 14px; border-radius: 999px; cursor: pointer; font-size: 13.5px;
+    font-family: inherit; transition: .15s;
+  }
+  .chip:hover { border-color: var(--accent); transform: translateY(-1px); }
+  #chat { display: flex; flex-direction: column; gap: 14px; }
+  .msg { display: flex; gap: 10px; max-width: 96%; }
+  .msg .av {
+    width: 34px; height: 34px; border-radius: 10px; flex: 0 0 34px;
+    display: grid; place-items: center; font-size: 16px; margin-top: 2px;
+  }
+  .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+  .msg.user .av { background: linear-gradient(135deg, var(--accent), var(--accent2)); }
+  .msg.ai .av { background: #1a2447; border: 1px solid #24305e; }
+  .bubble {
+    background: var(--panel); border: 1px solid #223060; border-radius: 14px;
+    padding: 12px 14px; font-size: 15px; line-height: 1.55;
+  }
+  .msg.user .bubble { background: #182348; border-color: #2b3c78; }
+  .codebox { margin-top: 10px; border: 1px solid #223060; border-radius: 12px; overflow: hidden; }
+  .codebar {
+    display: flex; align-items: center; gap: 8px; background: #101735; padding: 8px 12px;
+    border-bottom: 1px solid #223060; font-size: 12.5px; color: var(--dim);
+  }
+  .codebar .btns { margin-left: auto; display: flex; gap: 8px; }
+  .btn {
+    background: #1c2a58; color: var(--text); border: 1px solid #2b3c78; border-radius: 8px;
+    padding: 5px 12px; font-size: 12.5px; cursor: pointer; font-family: inherit;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn.run { background: #17452e; border-color: #1f6b43; color: #a5f2c5; }
+  pre.code {
+    background: var(--code-bg); padding: 14px; overflow-x: auto;
+    font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+    font-size: 13px; line-height: 1.6; white-space: pre; margin: 0;
+  }
+  .outbox {
+    margin-top: 8px; background: #060a15; border: 1px solid #1d2a52; border-radius: 10px;
+    padding: 10px 12px; font-family: Consolas, monospace; font-size: 12.5px;
+    white-space: pre-wrap; display: none;
+  }
+  .outbox.show { display: block; }
+  .outbox.ok { color: #8fe3b0; }
+  .outbox.bad { color: #ff9aa5; }
+  .thinking { color: var(--dim); font-size: 14px; }
+  .thinking .dot { animation: blink 1s infinite; display: inline-block; }
+  .thinking .dot:nth-child(2) { animation-delay: .2s; }
+  .thinking .dot:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%,100% {opacity:.2} 50% {opacity:1} }
+  footer {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 6;
+    background: rgba(11,16,32,.92); backdrop-filter: blur(8px);
+    border-top: 1px solid #1e2a52; padding: 14px 16px;
+  }
+  .inputrow { max-width: 860px; margin: 0 auto; display: flex; gap: 10px; }
+  #q {
+    flex: 1; background: var(--panel2); color: var(--text); border: 1px solid #2b3c78;
+    border-radius: 12px; padding: 13px 16px; font-size: 15px; font-family: inherit; outline: none;
+  }
+  #q:focus { border-color: var(--accent); }
+  #send {
+    background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white;
+    border: none; border-radius: 12px; padding: 0 26px; font-size: 15px; cursor: pointer;
+    font-family: inherit; font-weight: 600;
+  }
+  #send:disabled { opacity: .5; cursor: wait; }
+  .fineprint { max-width: 860px; margin: 8px auto 0; color: var(--dim); font-size: 11.5px; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">🤖</div>
+  <div>
+    <h1>HindiAI Coder</h1>
+    <div class="sub">आपका अपना Hindi coding AI — आपकी machine पर train हुआ</div>
+  </div>
+  <div id="badge">model check ho raha…</div>
+</header>
+
+<main>
+  <div class="chips" id="chips"></div>
+  <div id="chat">
+    <div class="msg ai">
+      <div class="av">🤖</div>
+      <div class="bubble">नमस्ते! 🙏 मैं आपका अपना Hindi coding AI हूँ। मुझे Hindi में कोई coding सावाल पूछिए — मैं Python code लिख दूँगा। नीचे दिए example पर भी क्लिक कर सकते हैं।</div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="inputrow">
+    <input id="q" placeholder="Hindi में coding सावाल लिखिए… जैसे: factorial निकालने का function लिखो" />
+    <button id="send">कोड लिखो ⚡</button>
+  </div>
+  <div class="fineprint">100% locally trained model — कोई cloud API नहीं। Small model hai (≈13M params), बड़ा model GPU पर train करने का रास्ता README में है।</div>
+</footer>
+
+<script>
+const EXAMPLES = [
+  "factorial निकालने का function लिखो",
+  "palindrome check करने का function लिखो",
+  "list में सबसे बड़ा number ढूँढो",
+  "Celsius को Fahrenheit में बदलो",
+  "bubble sort लिखो",
+  "BankAccount class लिखो",
+  "do numbers का GCD निकालो",
+  "even numbers की list बनाओ",
+];
+const chipsEl = document.getElementById("chips");
+EXAMPLES.forEach(t => {
+  const b = document.createElement("button");
+  b.className = "chip"; b.textContent = t;
+  b.onclick = () => { document.getElementById("q").value = t; ask(); };
+  chipsEl.appendChild(b);
+});
+
+const chat = document.getElementById("chat");
+const sendBtn = document.getElementById("send");
+sendBtn.onclick = ask;
+document.getElementById("q").addEventListener("keydown", e => { if (e.key === "Enter") ask(); });
+
+async function refreshStatus() {
+  try {
+    const r = await fetch("/api/status");
+    const d = await r.json();
+    const badge = document.getElementById("badge");
+    if (d.ready) { badge.textContent = "● model ready: " + d.model; badge.className = "ready"; }
+    else { badge.textContent = "⏳ training chalu hai…"; setTimeout(refreshStatus, 15000); }
+  } catch (e) {}
+}
+refreshStatus();
+
+function addMsg(who, html) {
+  const m = document.createElement("div");
+  m.className = "msg " + who;
+  m.innerHTML = `<div class="av">${who === "user" ? "" : "🤖"}</div><div class="bubble">${html}</div>`;
+  chat.appendChild(m);
+  window.scrollTo({top: document.body.scrollHeight, behavior: "smooth"});
+  return m.querySelector(".bubble");
+}
+
+function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+async function ask() {
+  const qEl = document.getElementById("q");
+  const q = qEl.value.trim();
+  if (!q) return;
+  addMsg("user", esc(q));
+  qEl.value = "";
+  sendBtn.disabled = true;
+  const b = addMsg("ai", `<span class="thinking">मॉडल सोच रहा है<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></span>`);
+  try {
+    const r = await fetch("/api/ask", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({q})});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "error");
+    b.innerHTML = `<div>यह रहा code, bhai: 🫡</div>` + codeBox(d.code);
+  } catch (e) {
+    b.innerHTML = `<span style="color:var(--err)">❌ ${esc(e.message)}</span>`;
+  }
+  sendBtn.disabled = false;
+}
+
+function codeBox(code) {
+  const id = "cb" + Math.random().toString(36).slice(2, 8);
+  return `
+  <div class="codebox">
+    <div class="codebar">
+      📄 generated_code.py
+      <div class="btns">
+        <button class="btn" onclick="copyCode('${id}')">📋 Copy</button>
+        <button class="btn run" onclick="runCode('${id}')">▶ चलाओ</button>
+      </div>
+    </div>
+    <pre class="code" id="${id}">${esc(code)}</pre>
+  </div>
+  <div class="outbox" id="${id}-out"></div>`;
+}
+
+window.copyCode = async (id) => {
+  try { await navigator.clipboard.writeText(document.getElementById(id).textContent); } catch(e) {}
+};
+
+window.runCode = async (id) => {
+  const code = document.getElementById(id).textContent;
+  const out = document.getElementById(id + "-out");
+  out.className = "outbox show";
+  out.textContent = "⏳ चल रहा है…";
+  const r = await fetch("/api/run", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({code})});
+  const d = await r.json();
+  let txt = "";
+  if (d.stdout) txt += d.stdout;
+  if (d.stderr) txt += (txt ? "\n" : "") + d.stderr;
+  out.textContent = txt || "(कोई output नहीं)";
+  out.className = "outbox show " + (d.ok ? "ok" : "bad");
+};
+</script>
+</body>
+</html>
