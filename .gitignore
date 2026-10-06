@@ -1,0 +1,10 @@
+# Nothing here is part of the app — screenshots/zips downloaded during dev.
+google_drive/
+storage/
+*.zip
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+node_modules/

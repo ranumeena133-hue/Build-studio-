@@ -1,0 +1,1635 @@
+<!DOCTYPE html>
+<html lang="hi" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e8a3c">
+<meta name="description" content="MeraPaisa — offline personal finance & portfolio tracker. Single HTML file, no server, no account.">
+<title>MeraPaisa — Personal Finance Tracker</title>
+<style>
+/* ============================================================
+   MeraPaisa — Offline Personal Finance Tracker
+   Single file · No dependencies · No network · Data in localStorage
+   ============================================================ */
+
+:root{
+  --green:#0e8a3c; --green-2:#17a34a; --green-3:#2fc465;
+  --green-soft:#e8f6ed; --green-ink:#0a6b2f;
+  --bg:#f2f5f3; --card:#ffffff; --card-2:#f8faf9;
+  --text:#0e1a15; --muted:#69776f; --line:#e6ece8;
+  --red:#d92d20; --red-soft:#fdeceb;
+  --amber:#c2740a; --amber-soft:#fdf3e3;
+  --blue:#1f6feb; --blue-soft:#eaf1fe;
+  --violet:#7c4dff;
+  --shadow:0 6px 22px rgba(11,42,26,.07);
+  --shadow-lg:0 18px 44px rgba(11,42,26,.16);
+  --r:18px; --r-lg:24px; --r-sm:12px;
+  --nav-h:70px;
+  --ff:'Segoe UI',system-ui,-apple-system,'Noto Sans Devanagari',Roboto,'Helvetica Neue',Arial,sans-serif;
+}
+html[data-theme="dark"]{
+  --green:#22b45e; --green-2:#1e9c50; --green-3:#3fd47a;
+  --green-soft:#12291d; --green-ink:#7fe0a5;
+  --bg:#080e0c; --card:#121b18; --card-2:#16211d;
+  --text:#e9f2ec; --muted:#8ba297; --line:#1f2c27;
+  --red:#ff6b5e; --red-soft:#2a1514;
+  --amber:#f0b13c; --amber-soft:#2a2113;
+  --blue:#6ba4ff; --blue-soft:#131f33;
+  --shadow:0 6px 22px rgba(0,0,0,.45);
+  --shadow-lg:0 18px 44px rgba(0,0,0,.6);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:var(--ff); background:var(--bg); color:var(--text);
+  font-size:15px; line-height:1.5; overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+body::before{
+  content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(760px 420px at 12% -8%, rgba(23,163,74,.16), transparent 62%),
+    radial-gradient(680px 420px at 96% 4%, rgba(31,111,235,.10), transparent 60%);
+}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+button{border:0;background:none;cursor:pointer}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:9px}
+
+/* ---------- App shell (phone-width column, centered on desktop) ---------- */
+.shell{
+  position:relative; z-index:1; width:100%; max-width:520px; margin:0 auto;
+  min-height:100dvh; background:transparent;
+  padding-bottom:calc(var(--nav-h) + 26px + env(safe-area-inset-bottom));
+}
+@media(min-width:640px){
+  .shell{
+    background:var(--card); min-height:calc(100dvh - 48px); margin:24px auto;
+    border-radius:30px; box-shadow:var(--shadow-lg); overflow:hidden;
+    border:1px solid var(--line);
+    padding-bottom:calc(var(--nav-h) + 26px);
+  }
+}
+.pad{padding:0 16px}
+
+/* ---------- Header ---------- */
+.hdr{
+  position:relative; padding:calc(18px + env(safe-area-inset-top)) 16px 74px;
+  background:linear-gradient(155deg, var(--green-3) 0%, var(--green-2) 42%, var(--green) 100%);
+  color:#fff; border-radius:0 0 30px 30px; overflow:hidden;
+}
+@media(min-width:640px){ .hdr{border-radius:0 0 30px 30px} }
+.hdr::after{
+  content:''; position:absolute; width:290px; height:290px; right:-110px; top:-150px;
+  background:radial-gradient(circle, rgba(255,255,255,.26), transparent 68%); border-radius:50%;
+}
+.hdr::before{
+  content:''; position:absolute; width:220px; height:220px; left:-90px; bottom:-140px;
+  background:radial-gradient(circle, rgba(255,255,255,.14), transparent 68%); border-radius:50%;
+}
+.hdr-top{position:relative; display:flex; align-items:center; justify-content:space-between; gap:12px}
+.hdr-user{display:flex; align-items:center; gap:11px; min-width:0}
+.avatar{
+  width:44px; height:44px; border-radius:50%; flex:0 0 auto; display:grid; place-items:center;
+  background:rgba(255,255,255,.22); border:1.5px solid rgba(255,255,255,.5);
+  font-size:21px; backdrop-filter:blur(4px);
+}
+.hdr-hi{font-size:12px; opacity:.92; letter-spacing:.2px}
+.hdr-name{font-size:16px; font-weight:700; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.icon-btn{
+  width:42px; height:42px; border-radius:14px; display:grid; place-items:center; flex:0 0 auto;
+  background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.32);
+  font-size:18px; color:#fff; transition:transform .15s, background .2s;
+}
+.icon-btn:active{transform:scale(.94)}
+.hdr-date{position:relative; margin-top:14px; font-size:12.5px; opacity:.95; display:flex; align-items:center; gap:7px}
+.dot-live{width:7px;height:7px;border-radius:50%;background:#b9f6cd;box-shadow:0 0 0 4px rgba(185,246,205,.25)}
+
+/* ---------- Cards ---------- */
+.card{
+  background:var(--card); border:1px solid var(--line); border-radius:var(--r);
+  box-shadow:var(--shadow); padding:16px;
+}
+.card + .card, .card + .sec, .sec + .card, .sec + .sec{margin-top:14px}
+.pull{margin-top:-58px; position:relative; z-index:2}
+.sec-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:20px 0 10px}
+.sec-title{font-size:15px; font-weight:700; letter-spacing:.1px}
+.link{color:var(--green-2); font-size:13px; font-weight:600}
+
+/* ---------- Balance hero card ---------- */
+.hero{
+  background:linear-gradient(150deg,#ffffff, #f6fbf8);
+  padding:18px; border-radius:var(--r-lg); border:1px solid var(--line);
+  box-shadow:var(--shadow-lg);
+}
+html[data-theme="dark"] .hero{background:linear-gradient(150deg,#14201c,#101815)}
+.hero-label{font-size:12.5px; color:var(--muted); display:flex; align-items:center; gap:6px}
+.hero-amt{font-size:34px; font-weight:800; letter-spacing:-.8px; margin:5px 0 2px; line-height:1.1}
+.hero-amt small{font-size:16px; font-weight:600; color:var(--muted); margin-left:6px; letter-spacing:0}
+.hero-split{display:flex; gap:10px; margin-top:14px}
+.mini{
+  flex:1; background:var(--card-2); border:1px solid var(--line); border-radius:14px; padding:10px 12px;
+}
+.mini-k{font-size:11.5px; color:var(--muted); display:flex; align-items:center; gap:5px}
+.mini-v{font-size:16px; font-weight:700; margin-top:3px}
+.up{color:var(--green-2)} .down{color:var(--red)}
+.spark{margin-top:12px; height:52px; width:100%; display:block}
+
+/* ---------- Quick actions ---------- */
+.qa{display:grid; grid-template-columns:repeat(4,1fr); gap:10px}
+.qa-btn{
+  background:var(--card); border:1px solid var(--line); border-radius:16px; padding:12px 6px;
+  display:flex; flex-direction:column; align-items:center; gap:6px; box-shadow:var(--shadow);
+  transition:transform .14s, border-color .2s; font-size:11.5px; font-weight:600; color:var(--text);
+}
+.qa-btn:active{transform:scale(.95)}
+.qa-ico{
+  width:38px; height:38px; border-radius:12px; display:grid; place-items:center; font-size:18px;
+  background:var(--green-soft); color:var(--green-ink);
+}
+.qa-ico.blue{background:var(--blue-soft); color:var(--blue)}
+.qa-ico.amber{background:var(--amber-soft); color:var(--amber)}
+.qa-ico.red{background:var(--red-soft); color:var(--red)}
+
+/* ---------- Progress ---------- */
+.bar{height:9px; border-radius:9px; background:var(--line); overflow:hidden}
+.bar > i{display:block; height:100%; border-radius:9px; background:linear-gradient(90deg,var(--green-2),var(--green-3)); transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.bar.warn > i{background:linear-gradient(90deg,#e08c14,#f0b13c)}
+.bar.danger > i{background:linear-gradient(90deg,#d92d20,#ff6b5e)}
+.row-between{display:flex; align-items:center; justify-content:space-between; gap:10px}
+.muted{color:var(--muted)}
+.tiny{font-size:12px}
+.strong{font-weight:700}
+
+/* ---------- Goals ---------- */
+.goal-scroll{display:flex; gap:12px; overflow-x:auto; padding:2px 16px 6px; margin:0 -16px; scroll-snap-type:x mandatory}
+.goal{
+  flex:0 0 auto; width:164px; scroll-snap-align:start; background:var(--card); border:1px solid var(--line);
+  border-radius:18px; padding:14px; box-shadow:var(--shadow);
+}
+.goal-ring{position:relative; width:56px; height:56px; margin-bottom:9px}
+.goal-ring svg{transform:rotate(-90deg)}
+.goal-ring b{position:absolute; inset:0; display:grid; place-items:center; font-size:12px; font-weight:800}
+.goal-t{font-size:13.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.goal-s{font-size:12px; color:var(--muted); margin-top:2px}
+.goal-add{
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px;
+  border:1.5px dashed var(--line); background:transparent; box-shadow:none; color:var(--muted);
+  font-size:12.5px; font-weight:600; text-align:center;
+}
+.goal-add span{font-size:24px}
+
+/* ---------- Transaction rows ---------- */
+.tx{
+  display:flex; align-items:center; gap:12px; padding:11px 4px; border-bottom:1px solid var(--line);
+  width:100%; text-align:left; transition:background .15s; border-radius:10px;
+}
+.tx:last-child{border-bottom:0}
+.tx:active{background:var(--card-2)}
+.tx-ico{
+  width:42px; height:42px; border-radius:13px; flex:0 0 auto; display:grid; place-items:center;
+  font-size:19px; background:var(--card-2); border:1px solid var(--line);
+}
+.tx-mid{flex:1; min-width:0}
+.tx-t{font-size:14px; font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.tx-d{font-size:11.5px; color:var(--muted)}
+.tx-amt{font-size:14.5px; font-weight:750; white-space:nowrap}
+
+/* ---------- Empty ---------- */
+.empty{text-align:center; padding:26px 10px; color:var(--muted)}
+.empty b{display:block; font-size:36px; margin-bottom:8px; opacity:.75}
+
+/* ---------- Bottom nav ---------- */
+.nav{
+  position:fixed; z-index:40; bottom:0; left:50%; transform:translateX(-50%);
+  width:100%; max-width:520px; height:calc(var(--nav-h) + env(safe-area-inset-bottom));
+  padding-bottom:env(safe-area-inset-bottom);
+  background:color-mix(in srgb, var(--card) 92%, transparent);
+  backdrop-filter:blur(14px); border-top:1px solid var(--line);
+  display:grid; grid-template-columns:repeat(5,1fr); align-items:center;
+}
+@media(min-width:640px){
+  .nav{bottom:24px; border-radius:0 0 30px 30px; max-width:520px}
+}
+.nav-btn{
+  display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 0;
+  font-size:10.5px; font-weight:600; color:var(--muted); transition:color .18s, transform .14s;
+}
+.nav-btn i{font-size:20px; font-style:normal; line-height:1; transition:transform .18s}
+.nav-btn.on{color:var(--green-2)}
+.nav-btn.on i{transform:translateY(-2px) scale(1.08)}
+.nav-fab{
+  width:54px; height:54px; margin:-24px auto 0; border-radius:50%; display:grid; place-items:center;
+  background:linear-gradient(145deg,var(--green-3),var(--green)); color:#fff; font-size:27px; font-weight:300;
+  box-shadow:0 10px 24px rgba(14,138,60,.42); border:4px solid var(--card); transition:transform .15s;
+}
+.nav-fab:active{transform:scale(.93)}
+
+/* ---------- Sections ---------- */
+.view{display:none; animation:fade .28s ease both}
+.view.on{display:block}
+@keyframes fade{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
+.page-hdr{padding:calc(16px + env(safe-area-inset-top)) 16px 14px}
+.page-title{font-size:20px; font-weight:800; letter-spacing:-.3px}
+.page-sub{font-size:12.5px; color:var(--muted); margin-top:2px}
+
+/* ---------- Sheet / modal ---------- */
+.backdrop{
+  position:fixed; inset:0; z-index:60; background:rgba(6,20,13,.5); backdrop-filter:blur(3px);
+  opacity:0; pointer-events:none; transition:opacity .25s;
+}
+.backdrop.on{opacity:1; pointer-events:auto}
+.sheet{
+  position:fixed; z-index:61; left:50%; transform:translate(-50%, 101%);
+  bottom:0; width:100%; max-width:520px; max-height:92dvh; overflow-y:auto;
+  background:var(--card); border-radius:26px 26px 0 0; box-shadow:var(--shadow-lg);
+  transition:transform .32s cubic-bezier(.22,1,.28,1);
+  padding:8px 16px calc(24px + env(safe-area-inset-bottom));
+}
+.sheet.on{transform:translate(-50%, 0)}
+.handle{width:44px; height:5px; border-radius:5px; background:var(--line); margin:8px auto 14px}
+.sheet-title{font-size:17px; font-weight:800; margin-bottom:3px}
+.sheet-sub{font-size:12.5px; color:var(--muted); margin-bottom:16px}
+
+/* ---------- Forms ---------- */
+.field{margin-bottom:13px}
+.label{font-size:12.5px; font-weight:650; color:var(--muted); margin-bottom:6px; display:block}
+.input, select.input, textarea.input{
+  width:100%; padding:13px 14px; border-radius:14px; border:1.5px solid var(--line);
+  background:var(--card-2); color:var(--text); outline:none; transition:border-color .18s, box-shadow .18s;
+}
+.input:focus{border-color:var(--green-2); box-shadow:0 0 0 4px color-mix(in srgb, var(--green-2) 16%, transparent); background:var(--card)}
+.amount-wrap{position:relative}
+.amount-wrap span{position:absolute; left:16px; top:50%; transform:translateY(-50%); font-size:22px; font-weight:800; color:var(--muted)}
+.amount-input{
+  width:100%; padding:16px 16px 16px 44px; font-size:30px; font-weight:800; letter-spacing:-.6px;
+  border-radius:16px; border:1.5px solid var(--line); background:var(--card-2); color:var(--text); outline:none;
+}
+.amount-input:focus{border-color:var(--green-2); box-shadow:0 0 0 4px color-mix(in srgb, var(--green-2) 16%, transparent); background:var(--card)}
+.seg{display:grid; grid-template-columns:1fr 1fr; gap:6px; background:var(--card-2); border:1px solid var(--line); padding:5px; border-radius:16px}
+.seg button{padding:10px; border-radius:12px; font-size:13.5px; font-weight:700; color:var(--muted); transition:.2s}
+.seg button.on{background:var(--card); color:var(--text); box-shadow:var(--shadow)}
+.seg button.on.inc{color:var(--green-2)} .seg button.on.exp{color:var(--red)}
+.chips{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
+.chip{
+  border:1.5px solid var(--line); background:var(--card-2); border-radius:14px; padding:9px 3px;
+  display:flex; flex-direction:column; align-items:center; gap:4px; font-size:10.5px; font-weight:600;
+  color:var(--muted); transition:.18s;
+}
+.chip i{font-size:18px; font-style:normal}
+.chip.on{border-color:var(--green-2); background:var(--green-soft); color:var(--green-ink)}
+.btn{
+  width:100%; padding:15px; border-radius:16px; font-weight:750; font-size:15px;
+  background:linear-gradient(145deg,var(--green-3),var(--green)); color:#fff;
+  box-shadow:0 8px 22px rgba(14,138,60,.32); transition:transform .14s, opacity .2s;
+}
+.btn:active{transform:scale(.98)}
+.btn.ghost{background:var(--card-2); color:var(--text); border:1.5px solid var(--line); box-shadow:none}
+.btn.danger{background:linear-gradient(145deg,#ff6b5e,#d92d20); box-shadow:0 8px 22px rgba(217,45,32,.3)}
+.btn-row{display:flex; gap:10px; margin-top:6px}
+
+/* ---------- Settings list ---------- */
+.list{background:var(--card); border:1px solid var(--line); border-radius:var(--r); overflow:hidden; box-shadow:var(--shadow)}
+.item{
+  display:flex; align-items:center; gap:13px; padding:14px 15px; width:100%; text-align:left;
+  border-bottom:1px solid var(--line); transition:background .15s;
+}
+.item:last-child{border-bottom:0}
+.item:active{background:var(--card-2)}
+.item-ico{width:38px; height:38px; border-radius:12px; display:grid; place-items:center; font-size:17px; background:var(--green-soft); color:var(--green-ink); flex:0 0 auto}
+.item-mid{flex:1; min-width:0}
+.item-t{font-size:14px; font-weight:650}
+.item-s{font-size:11.5px; color:var(--muted)}
+.chev{color:var(--muted); font-size:18px}
+
+/* ---------- Donut / legend ---------- */
+.donut-wrap{display:flex; align-items:center; gap:16px}
+.donut{width:132px; height:132px; flex:0 0 auto}
+.legend{flex:1; min-width:0}
+.legend-row{display:flex; align-items:center; gap:8px; font-size:12.5px; padding:3.5px 0}
+.legend-dot{width:9px; height:9px; border-radius:3px; flex:0 0 auto}
+.legend-val{margin-left:auto; font-weight:700; font-size:12.5px}
+
+/* ---------- Bars chart ---------- */
+.chart{
+  display:flex; align-items:flex-end; justify-content:space-between; gap:8px; height:170px;
+  padding:10px 2px 0; border-bottom:1px solid var(--line);
+}
+.col{flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; height:100%}
+.col-bars{flex:1; width:100%; display:flex; align-items:flex-end; justify-content:center; gap:4px}
+.col-bars i{width:11px; border-radius:6px 6px 3px 3px; display:block; transition:height .5s cubic-bezier(.2,.8,.2,1); min-height:3px}
+.col-bars i.inc{background:linear-gradient(180deg,var(--green-3),var(--green-2))}
+.col-bars i.exp{background:linear-gradient(180deg,#ff8a7e,#d92d20)}
+.col-l{font-size:10.5px; color:var(--muted); font-weight:600}
+.bar-legend{display:flex; gap:14px; justify-content:center; margin-top:10px; font-size:11.5px; color:var(--muted)}
+.bar-legend span{display:flex; align-items:center; gap:5px}
+
+/* ---------- Category breakdown ---------- */
+.cat-row{padding:9px 0}
+.cat-top{display:flex; align-items:center; gap:9px; font-size:13px; margin-bottom:6px}
+.cat-ico{width:30px; height:30px; border-radius:9px; display:grid; place-items:center; background:var(--card-2); border:1px solid var(--line); font-size:15px}
+.cat-amt{margin-left:auto; font-weight:750}
+
+/* ---------- Stat grid ---------- */
+.stats{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.stat{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:13px; box-shadow:var(--shadow)}
+.stat-k{font-size:11.5px; color:var(--muted); display:flex; align-items:center; gap:5px}
+.stat-v{font-size:19px; font-weight:800; margin-top:4px; letter-spacing:-.3px}
+.stat-x{font-size:11px; color:var(--muted); margin-top:2px}
+
+/* ---------- Badges ---------- */
+.badge{font-size:11px; font-weight:700; padding:3px 8px; border-radius:20px; background:var(--green-soft); color:var(--green-ink); white-space:nowrap}
+.badge.red{background:var(--red-soft); color:var(--red)}
+.badge.gray{background:var(--card-2); color:var(--muted); border:1px solid var(--line)}
+
+/* ---------- Toast ---------- */
+.toast-wrap{position:fixed; z-index:90; left:50%; transform:translateX(-50%); bottom:calc(var(--nav-h) + 20px + env(safe-area-inset-bottom)); width:max-content; max-width:92vw; display:flex; flex-direction:column; gap:8px; align-items:center}
+.toast{
+  background:#0f2b1c; color:#eafff1; padding:11px 17px; border-radius:14px; font-size:13px; font-weight:600;
+  box-shadow:var(--shadow-lg); animation:toastIn .3s cubic-bezier(.2,1.2,.3,1) both; display:flex; align-items:center; gap:8px;
+}
+html[data-theme="dark"] .toast{background:#1d3a29}
+.toast.err{background:#3a1512; color:#ffe6e3}
+@keyframes toastIn{from{opacity:0; transform:translateY(14px) scale(.94)} to{opacity:1; transform:none}}
+
+/* ---------- Note / disclaimer ---------- */
+.note{
+  background:var(--card-2); border:1px dashed var(--line); border-radius:16px; padding:14px;
+  font-size:12.5px; color:var(--muted); line-height:1.65;
+}
+.note b{color:var(--text)}
+.hidden{display:none !important}
+.mt8{margin-top:8px} .mt12{margin-top:12px} .mt16{margin-top:16px} .mb4{margin-bottom:4px}
+.footer{text-align:center; font-size:11px; color:var(--muted); padding:22px 16px 8px}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ================= HOME ================= -->
+  <section class="view on" id="v-home">
+    <header class="hdr">
+      <div class="hdr-top">
+        <div class="hdr-user">
+          <div class="avatar" id="hdr-avatar">👤</div>
+          <div style="min-width:0">
+            <div class="hdr-hi" data-i18n="greeting">नमस्ते 🙏</div>
+            <div class="hdr-name" id="hdr-name">—</div>
+          </div>
+        </div>
+        <button class="icon-btn" data-action="tips" aria-label="सूचनाएँ">🔔</button>
+      </div>
+      <div class="hdr-date"><span class="dot-live"></span><span id="hdr-date">—</span></div>
+    </header>
+
+    <div class="pad pull">
+      <div class="hero">
+        <div class="hero-label"><span>💰</span><span data-i18n="thisMonthSaving">इस महीने की बचत</span></div>
+        <div class="hero-amt" id="hero-amt">₹0</div>
+        <div class="tiny muted" id="hero-sub">—</div>
+        <div class="hero-split">
+          <div class="mini">
+            <div class="mini-k"><span>⬇️</span><span data-i18n="income">आय</span></div>
+            <div class="mini-v up" id="m-inc">₹0</div>
+          </div>
+          <div class="mini">
+            <div class="mini-k"><span>⬆️</span><span data-i18n="expense">खर्च</span></div>
+            <div class="mini-v down" id="m-exp">₹0</div>
+          </div>
+        </div>
+        <svg class="spark" id="spark" viewBox="0 0 300 52" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <div class="tiny muted" style="text-align:center" data-i18n="last6">पिछले 6 महीने की बचत का रुझान</div>
+      </div>
+
+      <div class="qa mt16">
+        <button class="qa-btn" data-action="add-income"><span class="qa-ico">⬇️</span><span data-i18n="addIncome">आय जोड़ें</span></button>
+        <button class="qa-btn" data-action="add-expense"><span class="qa-ico red">⬆️</span><span data-i18n="addExpense">खर्च जोड़ें</span></button>
+        <button class="qa-btn" data-action="go-portfolio"><span class="qa-ico blue">📈</span><span data-i18n="portfolio">पोर्टफोलियो</span></button>
+        <button class="qa-btn" data-action="go-reports"><span class="qa-ico amber">📊</span><span data-i18n="reports">रिपोर्ट</span></button>
+      </div>
+
+      <div class="sec-head"><div class="sec-title" data-i18n="budget">मासिक बजट</div>
+        <div class="link" data-action="edit-budget" data-i18n="edit">बदलें</div>
+      </div>
+      <div class="card">
+        <div class="row-between mb4">
+          <div class="strong" id="bud-spent">₹0</div>
+          <div class="tiny muted" id="bud-of">—</div>
+        </div>
+        <div class="bar" id="bud-bar"><i style="width:0%"></i></div>
+        <div class="tiny muted mt8" id="bud-msg">—</div>
+      </div>
+
+      <div class="sec-head"><div class="sec-title" data-i18n="goals">लक्ष्य</div>
+        <div class="link" data-action="add-goal" data-i18n="addGoal">+ नया लक्ष्य</div>
+      </div>
+      <div class="goal-scroll" id="goals"></div>
+
+      <div class="sec-head"><div class="sec-title" data-i18n="recent">हाल के लेन-देन</div>
+        <div class="link" data-action="all-tx" data-i18n="viewAll">सभी देखें</div>
+      </div>
+      <div class="card" id="recent-tx"></div>
+    </div>
+
+    <div class="footer">
+      <span data-i18n="footer">ऑफ़लाइन ऐप · डेटा आपके डिवाइस में ही रहता है · कोई सर्वर नहीं</span>
+    </div>
+  </section>
+
+  <!-- ================= PORTFOLIO ================= -->
+  <section class="view" id="v-portfolio">
+    <div class="page-hdr">
+      <div class="page-title" data-i18n="portfolio">पोर्टफोलियो</div>
+      <div class="page-sub" data-i18n="portfolioSub">आपके निवेश की पूरी तस्वीर एक जगह</div>
+    </div>
+    <div class="pad">
+      <div class="stats">
+        <div class="stat"><div class="stat-k">💵 <span data-i18n="invested">लगाई गई रकम</span></div><div class="stat-v" id="pf-inv">₹0</div></div>
+        <div class="stat"><div class="stat-k">🏦 <span data-i18n="currentValue">आज का मूल्य</span></div><div class="stat-v" id="pf-cur">₹0</div></div>
+        <div class="stat"><div class="stat-k">📈 <span data-i18n="pnl">कुल लाभ/नुकसान</span></div><div class="stat-v" id="pf-pnl">₹0</div><div class="stat-x" id="pf-pnl-x">—</div></div>
+        <div class="stat"><div class="stat-k">🏆 <span data-i18n="best">सबसे अच्छा</span></div><div class="stat-v" style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="pf-best">—</div><div class="stat-x" id="pf-best-x">—</div></div>
+      </div>
+
+      <div class="sec-head"><div class="sec-title" data-i18n="allocation">बँटवारा (Allocation)</div></div>
+      <div class="card">
+        <div class="donut-wrap">
+          <svg class="donut" id="pf-donut" viewBox="0 0 100 100"></svg>
+          <div class="legend" id="pf-legend"></div>
+        </div>
+      </div>
+
+      <div class="sec-head"><div class="sec-title" data-i18n="holdings">मेरे निवेश</div>
+        <div class="link" data-action="add-holding" data-i18n="addHolding">+ जोड़ें</div>
+      </div>
+      <div class="card" id="pf-list"></div>
+
+      <div class="note mt16">
+        <b data-i18n="pfNoteT">कैसे अपडेट करें?</b><br>
+        <span data-i18n="pfNoteB">किसी भी निवेश पर टैप करके उसका "आज का मूल्य" या लगाई गई रकम बदल सकते हैं। कोई ब्रोकर कनेक्शन नहीं है — पूरा डेटा आप खुद भरते हैं, इसलिए ऐप हमेशा ऑफ़लाइन काम करता है।</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= REPORTS ================= -->
+  <section class="view" id="v-reports">
+    <div class="page-hdr">
+      <div class="page-title" data-i18n="reports">रिपोर्ट</div>
+      <div class="page-sub" data-i18n="reportsSub">कहाँ से आया, कहाँ गया — साफ़ नज़र</div>
+    </div>
+    <div class="pad">
+      <div class="stats">
+        <div class="stat"><div class="stat-k">💚 <span data-i18n="savingsRate">बचत दर</span></div><div class="stat-v" id="rp-rate">0%</div><div class="stat-x" id="rp-rate-x">—</div></div>
+        <div class="stat"><div class="stat-k">📅 <span data-i18n="avgMonthly">औसत मासिक खर्च</span></div><div class="stat-v" id="rp-avg">₹0</div><div class="stat-x" id="rp-avg-x">—</div></div>
+      </div>
+
+      <div class="sec-head"><div class="sec-title" data-i18n="incomeVsExpense">आय vs खर्च (6 महीने)</div></div>
+      <div class="card">
+        <div class="chart" id="rp-chart"></div>
+        <div class="bar-legend">
+          <span><i style="width:10px;height:10px;border-radius:3px;background:var(--green-2);display:inline-block"></i> <span data-i18n="income">आय</span></span>
+          <span><i style="width:10px;height:10px;border-radius:3px;background:var(--red);display:inline-block"></i> <span data-i18n="expense">खर्च</span></span>
+        </div>
+      </div>
+
+      <div class="sec-head"><div class="sec-title" data-i18n="byCategory">खर्च कहाँ हुआ</div></div>
+      <div class="card">
+        <div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:10px" id="rp-months"></div>
+        <div id="rp-cats"></div>
+      </div>
+
+      <div class="sec-head"><div class="sec-title" data-i18n="insights">खास बातें</div></div>
+      <div class="card" id="rp-insights"></div>
+    </div>
+  </section>
+
+  <!-- ================= PROFILE ================= -->
+  <section class="view" id="v-profile">
+    <div class="page-hdr">
+      <div class="page-title" data-i18n="profile">प्रोफ़ाइल</div>
+      <div class="page-sub" data-i18n="profileSub">सेटिंग्स, भाषा और डेटा बैकअप</div>
+    </div>
+    <div class="pad">
+      <div class="card" style="display:flex; align-items:center; gap:14px">
+        <div class="avatar" style="width:58px;height:58px;font-size:26px;background:var(--green-soft);border-color:var(--green-2);color:var(--green-ink)" id="pf-avatar2">👤</div>
+        <div style="flex:1;min-width:0">
+          <div class="strong" style="font-size:16px" id="pr-name">—</div>
+          <div class="tiny muted" id="pr-phone">—</div>
+        </div>
+        <button class="badge gray" data-action="edit-profile" data-i18n="edit">बदलें</button>
+      </div>
+
+      <div class="sec-head"><div class="sec-title" data-i18n="settings">सेटिंग्स</div></div>
+      <div class="list">
+        <button class="item" data-action="toggle-lang">
+          <span class="item-ico">🌐</span>
+          <span class="item-mid"><span class="item-t" data-i18n="language">भाषा</span><span class="item-s" data-i18n="languageSub">ऐप की भाषा बदलें</span></span>
+          <span class="badge" id="pr-lang">हिंदी</span>
+        </button>
+        <button class="item" data-action="toggle-theme">
+          <span class="item-ico">🌙</span>
+          <span class="item-mid"><span class="item-t" data-i18n="theme">थीम</span><span class="item-s" data-i18n="themeSub">लाइट या डार्क मोड</span></span>
+          <span class="badge" id="pr-theme">लाइट</span>
+        </button>
+        <button class="item" data-action="edit-budget">
+          <span class="item-ico">🎯</span>
+          <span class="item-mid"><span class="item-t" data-i18n="budget">मासिक बजट</span><span class="item-s" data-i18n="budgetSub">महीने का खर्च सीमा</span></span>
+          <span class="badge" id="pr-budget">₹0</span>
+        </button>
+        <button class="item" data-action="edit-profile">
+          <span class="item-ico">👤</span>
+          <span class="item-mid"><span class="item-t" data-i18n="myInfo">मेरी जानकारी</span><span class="item-s" data-i18n="myInfoSub">नाम और नंबर</span></span>
+          <span class="chev">›</span>
+        </button>
+      </div>
+
+      <div class="sec-head"><div class="sec-title" data-i18n="dataBackup">डेटा बैकअप</div></div>
+      <div class="list">
+        <button class="item" data-action="export">
+          <span class="item-ico">⬇️</span>
+          <span class="item-mid"><span class="item-t" data-i18n="export">बैकअप डाउनलोड करें</span><span class="item-s" data-i18n="exportSub">JSON फ़ाइल में सेव करें</span></span>
+          <span class="chev">›</span>
+        </button>
+        <button class="item" data-action="import">
+          <span class="item-ico">⬆️</span>
+          <span class="item-mid"><span class="item-t" data-i18n="import">बैकअप वापस लाएँ</span><span class="item-s" data-i18n="importSub">पहले सेव की गई JSON फ़ाइल से</span></span>
+          <span class="chev">›</span>
+        </button>
+        <button class="item" data-action="reset">
+          <span class="item-ico" style="background:var(--red-soft);color:var(--red)">🔄</span>
+          <span class="item-mid"><span class="item-t" data-i18n="reset">डेमो डेटा रीसेट करें</span><span class="item-s" data-i18n="resetSub">सब कुछ मिटाकर शुरुआती डेमो डेटा</span></span>
+          <span class="chev">›</span>
+        </button>
+        <button class="item" data-action="wipe">
+          <span class="item-ico" style="background:var(--red-soft);color:var(--red)">🗑️</span>
+          <span class="item-mid"><span class="item-t" data-i18n="wipe">सब खाली करें</span><span class="item-s" data-i18n="wipeSub">पूरा डेटा हटाएँ (वापस नहीं आएगा)</span></span>
+          <span class="chev">›</span>
+        </button>
+      </div>
+
+      <div class="sec-head"><div class="sec-title" data-i18n="about">ऐप के बारे में</div></div>
+      <div class="note">
+        <b id="ab-brand">MeraPaisa</b><br>
+        <span data-i18n="aboutB1">यह एक पूरी तरह ऑफ़लाइन ऐप है। कोई सर्वर, कोई अकाउंट, कोई लॉगिन नहीं। आपका सारा डेटा सिर्फ़ इसी ब्राउज़र में (localStorage में) सेव होता है, और कहीं नहीं भेजा जाता।</span><br><br>
+        <span data-i18n="aboutB2">यह एक व्यक्तिगत ट्रैकर है — यह कोई निवेश सलाह नहीं देता, किसी योजना का झांसा नहीं देता और किसी तरह का रिटर्न नहीं दिलाता। इसमें कोई रिफ़रल, लेवल-कमीशन या रिचार्ज सिस्टम नहीं है।</span><br><br>
+        <span class="tiny" id="ab-ver">v1.0</span>
+      </div>
+    </div>
+    <div class="footer"><span id="ab-brand2">MeraPaisa</span> · <span data-i18n="madeForYou">आपके लिए बनाया गया</span></div>
+  </section>
+
+  <!-- ================= BOTTOM NAV ================= -->
+  <nav class="nav" id="nav">
+    <button class="nav-btn on" data-tab="home"><i>🏠</i><span data-i18n="home">होम</span></button>
+    <button class="nav-btn" data-tab="portfolio"><i>📈</i><span data-i18n="portfolio">पोर्टफोलियो</span></button>
+    <button class="nav-btn" data-tab="add" style="pointer-events:none"><span class="nav-fab" data-action="add-expense" style="pointer-events:auto">+</span></button>
+    <button class="nav-btn" data-tab="reports"><i>📊</i><span data-i18n="reports">रिपोर्ट</span></button>
+    <button class="nav-btn" data-tab="profile"><i>👤</i><span data-i18n="profile">प्रोफ़ाइल</span></button>
+  </nav>
+
+</div><!-- /shell -->
+
+<div class="backdrop" id="backdrop" data-action="close-sheet"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true">
+  <div class="handle"></div>
+  <div id="sheet-body"></div>
+</div>
+<div class="toast-wrap" id="toasts"></div>
+<input type="file" id="importFile" accept=".json,application/json" class="hidden">
+
+<script>
+/* =====================================================================
+   MeraPaisa — core
+   ===================================================================== */
+'use strict';
+
+const CONFIG = {
+  brand: 'MeraPaisa',
+  brandHi: 'मेरा पैसा',
+  symbol: '₹',
+  locale: 'en-IN',
+  version: '1.0.0',
+  storeKey: 'merapaisa.v1'
+};
+
+/* ---------------- i18n ---------------- */
+const I18N = {
+  hi: {
+    home:'होम', portfolio:'पोर्टफोलियो', add:'जोड़ें', reports:'रिपोर्ट', profile:'प्रोफ़ाइल',
+    greeting:'नमस्ते 🙏', thisMonthSaving:'इस महीने की बचत', income:'आय', expense:'खर्च',
+    last6:'पिछले 6 महीने की बचत का रुझान', addIncome:'आय जोड़ें', addExpense:'खर्च जोड़ें',
+    budget:'मासिक बजट', edit:'बदलें', goals:'लक्ष्य', addGoal:'+ नया लक्ष्य',
+    recent:'हाल के लेन-देन', viewAll:'सभी देखें',
+    footer:'ऑफ़लाइन ऐप · डेटा आपके डिवाइस में ही रहता है · कोई सर्वर नहीं',
+    portfolioSub:'आपके निवेश की पूरी तस्वीर एक जगह', invested:'लगाई गई रकम', currentValue:'आज का मूल्य',
+    pnl:'कुल लाभ/नुकसान', best:'सबसे अच्छा', allocation:'बँटवारा (Allocation)', holdings:'मेरे निवेश',
+    addHolding:'+ जोड़ें', pfNoteT:'कैसे अपडेट करें?',
+    pfNoteB:'किसी भी निवेश पर टैप करके उसका "आज का मूल्य" या लगाई गई रकम बदल सकते हैं। कोई ब्रोकर कनेक्शन नहीं है — पूरा डेटा आप खुद भरते हैं, इसलिए ऐप हमेशा ऑफ़लाइन काम करता है।',
+    reportsSub:'कहाँ से आया, कहाँ गया — साफ़ नज़र', savingsRate:'बचत दर', avgMonthly:'औसत मासिक खर्च',
+    incomeVsExpense:'आय vs खर्च (6 महीने)', byCategory:'खर्च कहाँ हुआ', insights:'खास बातें',
+    profileSub:'सेटिंग्स, भाषा और डेटा बैकअप', settings:'सेटिंग्स',
+    language:'भाषा', languageSub:'ऐप की भाषा बदलें', theme:'थीम', themeSub:'लाइट या डार्क मोड',
+    budgetSub:'महीने का खर्च सीमा', myInfo:'मेरी जानकारी', myInfoSub:'नाम और नंबर',
+    dataBackup:'डेटा बैकअप', export:'बैकअप डाउनलोड करें', exportSub:'JSON फ़ाइल में सेव करें',
+    import:'बैकअप वापस लाएँ', importSub:'पहले सेव की गई JSON फ़ाइल से',
+    reset:'डेमो डेटा रीसेट करें', resetSub:'सब कुछ मिटाकर शुरुआती डेमो डेटा',
+    wipe:'सब खाली करें', wipeSub:'पूरा डेटा हटाएँ (वापस नहीं आएगा)',
+    about:'ऐप के बारे में',
+    aboutB1:'यह एक पूरी तरह ऑफ़लाइन ऐप है। कोई सर्वर, कोई अकाउंट, कोई लॉगिन नहीं। आपका सारा डेटा सिर्फ़ इसी ब्राउज़र में (localStorage में) सेव होता है, और कहीं नहीं भेजा जाता।',
+    aboutB2:'यह एक व्यक्तिगत ट्रैकर है — यह कोई निवेश सलाह नहीं देता, किसी योजना का झांसा नहीं देता और किसी तरह का रिटर्न नहीं दिलाता। इसमें कोई रिफ़रल, लेवल-कमीशन या रिचार्ज सिस्टम नहीं है।',
+    madeForYou:'आपके लिए बनाया गया', offline:'ऑफ़लाइन',
+    /* dynamic */
+    save:'सेव करें', cancel:'रद्द करें', close:'बंद करें', delete:'हटाएँ',
+    addTx:'लेन-देन जोड़ें', addIncomeT:'आय जोड़ें', addExpenseT:'खर्च जोड़ें',
+    amount:'रकम', category:'श्रेणी', date:'तारीख़', note:'नोट (वैकल्पिक)', notePh:'जैसे: दूध और सब्ज़ी',
+    txDetail:'लेन-देन', allTx:'सभी लेन-देन', filterAll:'सभी', filterIn:'आय', filterOut:'खर्च',
+    noTx:'कोई लेन-देन नहीं', noTxSub:'नीचे + बटन से पहला लेन-देन जोड़ें',
+    noHold:'कोई निवेश नहीं जोड़ा', noHoldSub:'"जोड़ें" दबाकर अपना पहला निवेश जोड़ें',
+    goalNew:'नया लक्ष्य', goalTitle:'लक्ष्य का नाम', goalTitlePh:'जैसे: इमरजेंसी फंड',
+    goalTarget:'कुल लक्ष्य', goalSaved:'अब तक जमा', addMoney:'पैसे जोड़ें', saveInto:'जमा करें',
+    saved:'सेव हो गया', deleted:'हटा दिया गया', setupOk:'सेटअप पूरा हुआ',
+    budgetEdit:'मासिक बजट बदलें', budgetPh:'जैसे: 25000', profileEdit:'मेरी जानकारी',
+    name:'नाम', phone:'मोबाइल नंबर', avatar:'आइकन', saveProfile:'सेव करें',
+    confirmReset:'पक्का? सब कुछ मिटाकर शुरुआती डेमो डेटा लौट आएगा।',
+    confirmWipe:'पक्का? आपका पूरा डेटा हमेशा के लिए हट जाएगा। इसका बैकअप लेना बेहतर होगा।',
+    yesReset:'हाँ, रीसेट करें', yesWipe:'हाँ, मिटा दें',
+    holdName:'निवेश का नाम', holdNamePh:'जैसे: निफ़्टी 50 इंडेक्स फंड', holdType:'प्रकार',
+    holdInv:'कितना लगाया (₹)', holdCur:'आज का मूल्य (₹)', saveHold:'सेव करें',
+    editHold:'निवेश बदलें', newHold:'नया निवेश',
+    exportDone:'बैकअप फ़ाइल डाउनलोड हो गई', importDone:'बैकअप वापस लोड हो गया', importErr:'यह फ़ाइल पढ़ी नहीं जा सकी',
+    amountErr:'कृपया सही रकम डालें', nameErr:'कृपया नाम भरें',
+    tips:'सूचनाएँ', tipsSub:'कुछ काम की बातें',
+    tip1:'हर महीने की 1 तारीख़ को बजट देख लें — शुरूआत में छोटा रखें, बढ़ाना आसान है।',
+    tip2:'बचत दर 20% से ऊपर रखने की कोशिश करें। रिपोर्ट टैब में आपकी असली दर दिखती है।',
+    tip3:'पोर्टफोलियो में "आज का मूल्य" हर महीने एक बार अपडेट कर लें, तभी लाभ/नुकसान सही दिखेगा।',
+    tip4:'महीने में एक बार प्रोफ़ाइल → बैकअप डाउनलोड कर लें। फ़ोन बदला तो डेटा बचा रहेगा।',
+    total:'कुल', remaining:'बाकी', of:'में से', spentOf:'खर्च हो गया', overBudget:'बजट पार हो गया!',
+    safeBudget:'बजट के अंदर हैं', target:'लक्ष्य', savedLabel:'जमा', months6:'6 महीने',
+    totalSavedAll:'कुल जमा पूँजी (सब समय)', thisMonth:'इस महीने',
+    topCat:'सबसे ज़्यादा खर्च', bigExp:'सबसे बड़ा एकल खर्च', vsLast:'पिछले महीने से',
+    moreSpend:'ज़्यादा खर्च', lessSpend:'कम खर्च', noData:'इस महीने का डेटा नहीं',
+    cashFlow:'बचत', thisMonthTip:'इस महीने'
+  },
+  en: {
+    home:'Home', portfolio:'Portfolio', add:'Add', reports:'Reports', profile:'Profile',
+    greeting:'Hello 🙏', thisMonthSaving:'Saved this month', income:'Income', expense:'Expense',
+    last6:'Savings trend — last 6 months', addIncome:'Add income', addExpense:'Add expense',
+    budget:'Monthly budget', edit:'Edit', goals:'Goals', addGoal:'+ New goal',
+    recent:'Recent activity', viewAll:'View all',
+    footer:'Offline app · Your data stays on your device · No server',
+    portfolioSub:'Your whole portfolio in one place', invested:'Invested', currentValue:'Current value',
+    pnl:'Total P&L', best:'Best performer', allocation:'Allocation', holdings:'My holdings',
+    addHolding:'+ Add', pfNoteT:'How to update?',
+    pfNoteB:'Tap any holding to update its current value or invested amount. There is no broker connection — you enter everything yourself, which is why the app always works offline.',
+    reportsSub:'Money in, money out — clearly', savingsRate:'Savings rate', avgMonthly:'Avg. monthly spend',
+    incomeVsExpense:'Income vs Expense (6 months)', byCategory:'Where money went', insights:'Insights',
+    profileSub:'Settings, language & data backup', settings:'Settings',
+    language:'Language', languageSub:'Change app language', theme:'Theme', themeSub:'Light or dark mode',
+    budgetSub:'Monthly spending limit', myInfo:'My details', myInfoSub:'Name and phone',
+    dataBackup:'Data backup', export:'Download backup', exportSub:'Save everything as a JSON file',
+    import:'Restore backup', importSub:'From a previously saved JSON file',
+    reset:'Reset demo data', resetSub:'Clear all and reload sample data',
+    wipe:'Erase everything', wipeSub:'Delete all data (cannot be undone)',
+    about:'About this app',
+    aboutB1:'This is a fully offline app. No server, no account, no login. All your data is stored only in this browser (localStorage) and is never sent anywhere.',
+    aboutB2:'This is a personal tracker — it gives no investment advice, promises no scheme, and pays no returns. There is no referral, level-commission or recharge system in it.',
+    madeForYou:'built for you', offline:'Offline',
+    save:'Save', cancel:'Cancel', close:'Close', delete:'Delete',
+    addTx:'Add transaction', addIncomeT:'Add income', addExpenseT:'Add expense',
+    amount:'Amount', category:'Category', date:'Date', note:'Note (optional)', notePh:'e.g. milk and vegetables',
+    txDetail:'Transaction', allTx:'All transactions', filterAll:'All', filterIn:'Income', filterOut:'Expense',
+    noTx:'No transactions yet', noTxSub:'Tap the + button below to add your first one',
+    noHold:'No holdings added', noHoldSub:'Tap "Add" to add your first investment',
+    goalNew:'New goal', goalTitle:'Goal name', goalTitlePh:'e.g. Emergency fund',
+    goalTarget:'Target amount', goalSaved:'Saved so far', addMoney:'Add money', saveInto:'Save',
+    saved:'Saved', deleted:'Deleted', setupOk:'Setup complete',
+    budgetEdit:'Change monthly budget', budgetPh:'e.g. 25000', profileEdit:'My details',
+    name:'Name', phone:'Mobile number', avatar:'Icon', saveProfile:'Save',
+    confirmReset:'Sure? Everything will be cleared and the sample data will come back.',
+    confirmWipe:'Sure? All your data will be deleted forever. Consider taking a backup first.',
+    yesReset:'Yes, reset', yesWipe:'Yes, erase',
+    holdName:'Holding name', holdNamePh:'e.g. Nifty 50 Index Fund', holdType:'Type',
+    holdInv:'Invested (₹)', holdCur:'Current value (₹)', saveHold:'Save',
+    editHold:'Edit holding', newHold:'New holding',
+    exportDone:'Backup file downloaded', importDone:'Backup restored', importErr:'Could not read that file',
+    amountErr:'Please enter a valid amount', nameErr:'Please enter a name',
+    tips:'Notifications', tipsSub:'A few useful things',
+    tip1:'Check your budget on the 1st of every month — start small, it is easier to grow later.',
+    tip2:'Try to keep your savings rate above 20%. The Reports tab shows your real rate.',
+    tip3:'Update "current value" in Portfolio once a month, so P&L stays accurate.',
+    tip4:'Download a backup from Profile once a month — you keep your data even if you change phones.',
+    total:'Total', remaining:'left', of:'of', spentOf:'spent', overBudget:'Over budget!',
+    safeBudget:'Within budget', target:'Target', savedLabel:'Saved', months6:'6 months',
+    totalSavedAll:'Total saved (all time)', thisMonth:'this month',
+    topCat:'Biggest category', bigExp:'Largest single expense', vsLast:'vs last month',
+    moreSpend:'more spending', lessSpend:'less spending', noData:'No data this month',
+    cashFlow:'Saved', thisMonthTip:'this month'
+  }
+};
+const T = k => (I18N[state.lang] && I18N[state.lang][k]) || I18N.hi[k] || k;
+
+const MONTHS = {
+  hi:['जन','फ़र','मार्च','अप्रै','मई','जून','जुल','अग','सित','अक्ट','नव','दिस'],
+  en:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+};
+
+const CATS = {
+  income:[
+    {id:'salary',hi:'वेतन',en:'Salary',icon:'💼'},
+    {id:'business',hi:'व्यापार',en:'Business',icon:'🏪'},
+    {id:'interest',hi:'ब्याज',en:'Interest',icon:'🏦'},
+    {id:'gift',hi:'उपहार',en:'Gift',icon:'🎁'},
+    {id:'other_in',hi:'अन्य',en:'Other',icon:'✨'}
+  ],
+  expense:[
+    {id:'food',hi:'खाना',en:'Food',icon:'🍔'},
+    {id:'travel',hi:'यात्रा',en:'Travel',icon:'🚕'},
+    {id:'shopping',hi:'खरीदारी',en:'Shopping',icon:'🛍️'},
+    {id:'bills',hi:'बिल',en:'Bills',icon:'🧾'},
+    {id:'rent',hi:'किराया',en:'Rent',icon:'🏠'},
+    {id:'health',hi:'स्वास्थ्य',en:'Health',icon:'💊'},
+    {id:'education',hi:'पढ़ाई',en:'Education',icon:'📚'},
+    {id:'fun',hi:'मनोरंजन',en:'Fun',icon:'🎬'},
+    {id:'other_ex',hi:'अन्य',en:'Other',icon:'📦'}
+  ]
+};
+const HTYPES = {
+  stock:{hi:'शेयर',en:'Stock',icon:'📊',color:'#1f6feb'},
+  mf:{hi:'म्यूचुअल फंड',en:'Mutual Fund',icon:'🧺',color:'#7c4dff'},
+  gold:{hi:'सोना',en:'Gold',icon:'🪙',color:'#c2740a'},
+  fd:{hi:'FD',en:'Fixed Deposit',icon:'🏦',color:'#0e8a3c'},
+  ppf:{hi:'PPF',en:'PPF',icon:'🛡️',color:'#12a594'},
+  cash:{hi:'नकद/बचत खाता',en:'Cash / Savings',icon:'💵',color:'#69776f'}
+};
+
+/* ---------------- helpers ---------------- */
+const $  = s => document.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const clamp = (n,a,b) => Math.max(a, Math.min(b,n));
+const num = v => { const n = parseFloat(String(v).replace(/[^\d.-]/g,'')); return isFinite(n) ? n : 0; };
+const pad2 = n => String(n).padStart(2,'0');
+const iso = d => d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+const catOf = (type,id) => (CATS[type]||[]).find(c=>c.id===id) || {id:id,hi:id,en:id,icon:'📦'};
+const catName = c => (state.lang==='hi' ? c.hi : c.en);
+const typeName = t => (state.lang==='hi' ? HTYPES[t].hi : HTYPES[t].en);
+const monthKey = d => d.getFullYear()+'-'+pad2(d.getMonth()+1);
+
+function money(n, withSign){
+  const v = Math.round(Math.abs(n));
+  const s = CONFIG.symbol + v.toLocaleString(CONFIG.locale);
+  if (withSign) return (n<0?'-':'+') + s;
+  return (n<0?'-':'') + s;
+}
+function shortMoney(n){
+  const a = Math.abs(n);
+  if (a >= 1e7) return CONFIG.symbol + (n/1e7).toFixed(2) + ' Cr';
+  if (a >= 1e5) return CONFIG.symbol + (n/1e5).toFixed(2) + ' L';
+  if (a >= 1e3) return CONFIG.symbol + (n/1e3).toFixed(1) + 'K';
+  return CONFIG.symbol + Math.round(n);
+}
+function fmtDate(dateStr){
+  const d = new Date(dateStr+'T00:00:00');
+  if (isNaN(d)) return dateStr;
+  const m = MONTHS[state.lang][d.getMonth()];
+  return state.lang==='hi' ? `${d.getDate()} ${m} ${d.getFullYear()}` : `${m} ${d.getDate()}, ${d.getFullYear()}`;
+}
+function monthLabel(key){
+  const [y,m] = key.split('-').map(Number);
+  return MONTHS[state.lang][m-1] + (state.lang==='hi' ? '' : ' ’' + String(y).slice(2));
+}
+
+/* ---------------- state ---------------- */
+let state = null;
+let form = { type:'expense', cat:'food' };   // add-transaction form state
+let rpMonth = null;                          // reports: selected month
+let txFilter = 'all';                        // all-transactions sheet filter
+
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function dateAt(monthsAgo, day){
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth()-monthsAgo, Math.min(day,28));
+}
+function seedState(){
+  const rnd = mulberry32(20261007);
+  const tx = [];
+  const today = new Date(); today.setHours(0,0,0,0);
+  const push = (mAgo, day, type, cat, amount, note) => {
+    const d = dateAt(mAgo, day);
+    if (d > today) return;
+    tx.push({ id:uid(), type, cat, amount:Math.round(amount), note:note||'', date:iso(d) });
+  };
+  for (let m = 5; m >= 0; m--){
+    push(m, 3,  'income','salary',45000,'मासिक वेतन');
+    if (rnd() > .45) push(m, 17, 'income','business', 4000 + rnd()*9000, 'फ़्रीलांस काम');
+    if (m === 4)     push(m, 22, 'income','interest', 2180, 'FD ब्याज');
+    push(m, 5,  'expense','rent', 8000, 'घर का किराया');
+    push(m, 7,  'expense','bills', 900 + rnd()*900, 'बिजली-पानी');
+    push(m, 9,  'expense','bills', 299, 'मोबाइल रिचार्ज');
+    const groceryRuns = 3 + Math.floor(rnd()*3);
+    for (let i = 0; i < groceryRuns; i++) push(m, 2 + i*7 + Math.floor(rnd()*3), 'expense','food', 800 + rnd()*1900, 'किराना/सब्ज़ी');
+    for (let i = 0; i < 3; i++) push(m, 4 + i*9 + Math.floor(rnd()*4), 'expense','travel', 220 + rnd()*700, 'यात्रा');
+    if (rnd() > .35) push(m, 12, 'expense','shopping', 700 + rnd()*2600, 'कपड़े/सामान');
+    if (rnd() > .5)  push(m, 19, 'expense','fun', 200 + rnd()*700, 'फ़िल्म/घूमना');
+    if (rnd() > .6)  push(m, 24, 'expense','health', 300 + rnd()*1600, 'दवा/डॉक्टर');
+    if (rnd() > .75) push(m, 14, 'expense','education', 500 + rnd()*1500, 'किताब/कोर्स');
+  }
+  tx.sort((a,b) => a.date < b.date ? 1 : -1);
+
+  const holdings = [
+    { id:uid(), name:'रिलायंस इंडस्ट्रीज़', type:'stock', invested:42000, current:47600, note:'5 शेयर' },
+    { id:uid(), name:'TCS',                  type:'stock', invested:25000, current:23900, note:'3 शेयर' },
+    { id:uid(), name:'निफ़्टी 50 इंडेक्स फंड', type:'mf',    invested:60000, current:71250, note:'SIP ₹5,000/माह' },
+    { id:uid(), name:'पाराग पारिख फ्लेक्सी कैप', type:'mf',  invested:48000, current:58900, note:'SIP ₹4,000/माह' },
+    { id:uid(), name:'डिजिटल गोल्ड',          type:'gold',  invested:30000, current:34250, note:'महीने ₹2,500' },
+    { id:uid(), name:'बैंक FD (2 साल)',        type:'fd',    invested:100000, current:106400, note:'7.1% ब्याज' },
+    { id:uid(), name:'PPF',                    type:'ppf',   invested:60000, current:63800, note:'सालाना ₹30,000' }
+  ];
+
+  return {
+    lang:'hi', theme:'light', budget:25000,
+    profile:{ name:'रानू मीना', phone:'+91 90000 00000', avatar:'👤' },
+    tx, holdings,
+    goals:[
+      { id:uid(), title:'इमरजेंसी फंड', target:100000, saved:64000 },
+      { id:uid(), title:'नया फ़ोन',      target:30000,  saved:12500 },
+      { id:uid(), title:'गोवा ट्रिप',    target:45000,  saved:8000 }
+    ]
+  };
+}
+function loadState(){
+  try{
+    const raw = localStorage.getItem(CONFIG.storeKey);
+    if (!raw) return seedState();
+    const s = JSON.parse(raw);
+    if (!s || !Array.isArray(s.tx)) return seedState();
+    s.holdings = s.holdings || []; s.goals = s.goals || [];
+    s.profile = s.profile || { name:'', phone:'', avatar:'👤' };
+    s.budget = s.budget || 25000; s.lang = s.lang || 'hi'; s.theme = s.theme || 'light';
+    return s;
+  }catch(e){ return seedState(); }
+}
+function save(){ try{ localStorage.setItem(CONFIG.storeKey, JSON.stringify(state)); }catch(e){} }
+
+/* ---------------- derived numbers ---------------- */
+function monthTotals(key){
+  let inc = 0, exp = 0;
+  state.tx.forEach(t => {
+    if (monthKey(new Date(t.date+'T00:00:00')) !== key) return;
+    if (t.type === 'income') inc += t.amount; else exp += t.amount;
+  });
+  return { inc, exp, net: inc - exp };
+}
+function last6Months(){
+  const out = [];
+  for (let i = 5; i >= 0; i--){
+    const d = dateAt(i, 1);
+    const key = monthKey(d);
+    out.push(Object.assign({ key, label: monthLabel(key), date:d }, monthTotals(key)));
+  }
+  return out;
+}
+function totalsAllTime(){
+  let inc = 0, exp = 0;
+  state.tx.forEach(t => t.type === 'income' ? inc += t.amount : exp += t.amount);
+  return { inc, exp, net: inc - exp };
+}
+function portfolio(){
+  const inv = state.holdings.reduce((s,h) => s + num(h.invested), 0);
+  const cur = state.holdings.reduce((s,h) => s + num(h.current), 0);
+  return { inv, cur, pnl: cur - inv, pct: inv > 0 ? (cur - inv) / inv * 100 : 0 };
+}
+
+/* ---------------- charts (pure SVG / CSS, no libraries) ---------------- */
+function sparkSVG(vals){
+  const W = 300, H = 52, P = 7;
+  if (!vals.length) return '';
+  const max = Math.max.apply(null, vals.concat([0]));
+  const min = Math.min.apply(null, vals.concat([0]));
+  const range = (max - min) || 1;
+  const step = vals.length > 1 ? (W - P*2) / (vals.length - 1) : 0;
+  const pts = vals.map((v,i) => [P + i*step, H - P - ((v - min)/range)*(H - P*2)]);
+  const line = pts.map((p,i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  const area = line + ' L ' + pts[pts.length-1][0].toFixed(1) + ' ' + H + ' L ' + pts[0][0].toFixed(1) + ' ' + H + ' Z';
+  const last = pts[pts.length-1];
+  return '<defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0%" stop-color="#17a34a" stop-opacity=".38"/>' +
+    '<stop offset="100%" stop-color="#17a34a" stop-opacity="0"/></linearGradient></defs>' +
+    '<path d="' + area + '" fill="url(#sg)"/>' +
+    '<path d="' + line + '" fill="none" stroke="#17a34a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<circle cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="3.6" fill="#0e8a3c" stroke="#fff" stroke-width="2"/>';
+}
+function donutSVG(rows){
+  const R = 40, C = 2 * Math.PI * R;
+  const total = rows.reduce((s,r) => s + r.value, 0);
+  let off = 0, segs = '';
+  if (total > 0){
+    rows.forEach(r => {
+      const len = C * r.value / total;
+      segs += '<circle cx="50" cy="50" r="' + R + '" fill="none" stroke="' + r.color + '" stroke-width="13" ' +
+        'stroke-dasharray="' + len.toFixed(2) + ' ' + (C-len).toFixed(2) + '" stroke-dashoffset="' + (-off).toFixed(2) +
+        '" transform="rotate(-90 50 50)"/>';
+      off += len;
+    });
+  }
+  const label = total > 0 ? shortMoney(total) : '—';
+  return '<circle cx="50" cy="50" r="' + R + '" fill="none" stroke="var(--line)" stroke-width="13"/>' + segs +
+    '<text x="50" y="46" text-anchor="middle" font-size="8.5" fill="var(--muted)">' + esc(T('total')) + '</text>' +
+    '<text x="50" y="60" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--text)">' + esc(label) + '</text>';
+}
+function ringSVG(pct, color){
+  const R = 24, C = 2 * Math.PI * R;
+  const len = C * clamp(pct,0,100) / 100;
+  return '<svg width="56" height="56" viewBox="0 0 56 56">' +
+    '<circle cx="28" cy="28" r="' + R + '" fill="none" stroke="var(--line)" stroke-width="6"/>' +
+    '<circle cx="28" cy="28" r="' + R + '" fill="none" stroke="' + color + '" stroke-width="6" stroke-linecap="round" ' +
+    'stroke-dasharray="' + len.toFixed(2) + ' ' + (C-len).toFixed(2) + '"/></svg>';
+}
+
+/* ---------------- render: HOME ---------------- */
+function renderHome(){
+  const now = new Date();
+  const key = monthKey(now);
+  const m = monthTotals(key);
+  const all = totalsAllTime();
+  const months = last6Months();
+
+  $('#hdr-name').textContent = state.profile.name || '—';
+  $('#hdr-avatar').textContent = state.profile.avatar || '👤';
+  $('#hdr-date').textContent = fmtDate(iso(now)) + ' · ' + T('offline');
+
+  $('#hero-amt').textContent = money(m.net);
+  $('#hero-amt').className = 'hero-amt ' + (m.net >= 0 ? '' : 'down').trim();
+  $('#hero-sub').textContent = T('totalSavedAll') + ': ' + money(all.net);
+  $('#m-inc').textContent = money(m.inc);
+  $('#m-exp').textContent = money(m.exp);
+  $('#spark').innerHTML = sparkSVG(months.map(x => x.net));
+
+  // budget
+  const spent = m.exp, total = num(state.budget) || 0;
+  const pct = total > 0 ? clamp(spent / total * 100, 0, 100) : 0;
+  $('#bud-spent').textContent = money(spent);
+  $('#bud-of').textContent = (total>0 ? T('of') + ' ' + money(total) : '—');
+  const bar = $('#bud-bar');
+  bar.className = 'bar' + (pct >= 100 ? ' danger' : pct >= 80 ? ' warn' : '');
+  bar.firstElementChild.style.width = pct + '%';
+  $('#bud-msg').textContent = total > 0
+    ? (pct >= 100 ? T('overBudget') + ' · ' + money(spent - total) + ' ' + T('moreSpend')
+                  : T('remaining') + ' ' + money(total - spent) + ' · ' + Math.round(pct) + '% ' + T('spentOf'))
+    : T('budgetSub');
+
+  // goals
+  const g = $('#goals');
+  let gh = state.goals.map(go => {
+    const p = go.target > 0 ? clamp(go.saved / go.target * 100, 0, 100) : 0;
+    return '<button class="goal" data-action="goal-detail" data-id="' + go.id + '">' +
+      '<div class="goal-ring">' + ringSVG(p, '#17a34a') + '<b>' + Math.round(p) + '%</b></div>' +
+      '<div class="goal-t">' + esc(go.title) + '</div>' +
+      '<div class="goal-s">' + money(go.saved) + ' / ' + money(go.target) + '</div></button>';
+  }).join('');
+  gh += '<button class="goal goal-add" data-action="add-goal"><span>＋</span>' + esc(T('addGoal')).replace('+ ','') + '</button>';
+  g.innerHTML = gh;
+
+  // recent transactions
+  const recent = state.tx.slice().sort((a,b) => a.date < b.date ? 1 : -1).slice(0,6);
+  $('#recent-tx').innerHTML = recent.length ? recent.map(txRow).join('') : emptyBlock('🧾', T('noTx'), T('noTxSub'));
+}
+function txRow(t){
+  const c = catOf(t.type, t.cat);
+  const inc = t.type === 'income';
+  return '<button class="tx" data-action="tx-detail" data-id="' + t.id + '">' +
+    '<span class="tx-ico">' + c.icon + '</span>' +
+    '<span class="tx-mid"><span class="tx-t">' + esc(t.note || catName(c)) + '</span>' +
+    '<span class="tx-d">' + esc(catName(c)) + ' · ' + fmtDate(t.date) + '</span></span>' +
+    '<span class="tx-amt ' + (inc ? 'up' : 'down') + '">' + (inc ? '+' : '−') + money(t.amount) + '</span></button>';
+}
+const emptyBlock = (ico, title, sub) =>
+  '<div class="empty"><b>' + ico + '</b><div class="strong" style="color:var(--text)">' + esc(title) + '</div><div class="tiny">' + esc(sub) + '</div></div>';
+
+/* ---------------- render: PORTFOLIO ---------------- */
+function renderPortfolio(){
+  const p = portfolio();
+  $('#pf-inv').textContent = money(p.inv);
+  $('#pf-cur').textContent = money(p.cur);
+  const pnlEl = $('#pf-pnl');
+  pnlEl.textContent = money(p.pnl, true);
+  pnlEl.className = 'stat-v ' + (p.pnl >= 0 ? 'up' : 'down');
+  $('#pf-pnl-x').textContent = (p.pnl >= 0 ? '▲ ' : '▼ ') + Math.abs(p.pct).toFixed(2) + '%';
+
+  const best = state.holdings.slice().sort((a,b) => {
+    const ra = num(a.invested) > 0 ? (num(a.current) - num(a.invested)) / num(a.invested) : 0;
+    const rb = num(b.invested) > 0 ? (num(b.current) - num(b.invested)) / num(b.invested) : 0;
+    return rb - ra;
+  })[0];
+  if (best){
+    const bp = num(best.invested) > 0 ? (num(best.current) - num(best.invested)) / num(best.invested) * 100 : 0;
+    $('#pf-best').textContent = best.name;
+    $('#pf-best-x').textContent = (bp>=0?'+':'') + bp.toFixed(1) + '%';
+  } else { $('#pf-best').textContent = '—'; $('#pf-best-x').textContent = '—'; }
+
+  // allocation by type
+  const byType = {};
+  state.holdings.forEach(h => { byType[h.type] = (byType[h.type] || 0) + num(h.current); });
+  const rows = Object.keys(byType).filter(k => byType[k] > 0)
+    .sort((a,b) => byType[b] - byType[a])
+    .map(k => ({ key:k, value:byType[k], color:HTYPES[k] ? HTYPES[k].color : '#69776f' }));
+  $('#pf-donut').innerHTML = donutSVG(rows);
+  const totalCur = rows.reduce((s,r) => s + r.value, 0);
+  $('#pf-legend').innerHTML = rows.length ? rows.map(r =>
+    '<div class="legend-row"><span class="legend-dot" style="background:' + r.color + '"></span>' +
+    '<span>' + esc(typeName(r.key)) + '</span>' +
+    '<span class="legend-val">' + (totalCur ? Math.round(r.value/totalCur*100) : 0) + '%</span></div>'
+  ).join('') : '<div class="tiny muted">' + esc(T('noHold')) + '</div>';
+
+  // holdings list
+  $('#pf-list').innerHTML = state.holdings.length ? state.holdings.map(h => {
+    const inv = num(h.invested), cur = num(h.current);
+    const pnl = cur - inv, pct = inv > 0 ? pnl/inv*100 : 0;
+    const ht = HTYPES[h.type] || HTYPES.cash;
+    return '<button class="tx" data-action="hold-detail" data-id="' + h.id + '">' +
+      '<span class="tx-ico" style="color:' + ht.color + '">' + ht.icon + '</span>' +
+      '<span class="tx-mid"><span class="tx-t">' + esc(h.name) + '</span>' +
+      '<span class="tx-d">' + esc(typeName(h.type)) + ' · ' + money(inv) + ' → ' + money(cur) + '</span></span>' +
+      '<span class="tx-amt ' + (pnl >= 0 ? 'up' : 'down') + '">' + (pnl>=0?'+':'−') + money(pnl) +
+      '<br><span class="tiny muted">' + (pct>=0?'+':'') + pct.toFixed(1) + '%</span></span></button>';
+  }).join('') : emptyBlock('📈', T('noHold'), T('noHoldSub'));
+}
+/* ---------------- render: REPORTS ---------------- */
+function renderReports(){
+  const months = last6Months();
+  const inc6 = months.reduce((s,m) => s + m.inc, 0);
+  const exp6 = months.reduce((s,m) => s + m.exp, 0);
+  const net6 = inc6 - exp6;
+  const rate = inc6 > 0 ? net6 / inc6 * 100 : 0;
+
+  const rateEl = $('#rp-rate');
+  rateEl.textContent = rate.toFixed(1) + '%';
+  rateEl.className = 'stat-v ' + (rate >= 0 ? 'up' : 'down');
+  $('#rp-rate-x').textContent = money(net6, true) + ' · ' + T('months6');
+  $('#rp-avg').textContent = money(exp6 / 6);
+  $('#rp-avg-x').textContent = T('income') + ' ' + money(inc6 / 6) + ' / ' + (state.lang==='hi'?'माह':'mo');
+
+  // --- bar chart ---
+  const H = 128;
+  const maxV = Math.max.apply(null, months.map(m => Math.max(m.inc, m.exp)).concat([1]));
+  $('#rp-chart').innerHTML = months.map(m =>
+    '<div class="col">' +
+      '<div class="col-bars">' +
+        '<i class="inc" style="height:' + Math.max(3, Math.round(m.inc / maxV * H)) + 'px" title="' + esc(T('income') + ': ' + money(m.inc)) + '"></i>' +
+        '<i class="exp" style="height:' + Math.max(3, Math.round(m.exp / maxV * H)) + 'px" title="' + esc(T('expense') + ': ' + money(m.exp)) + '"></i>' +
+      '</div>' +
+      '<div class="col-l">' + esc(m.label) + '</div>' +
+    '</div>'
+  ).join('');
+
+  // --- month chips ---
+  if (!rpMonth || !months.some(m => m.key === rpMonth)) rpMonth = months[months.length-1].key;
+  $('#rp-months').innerHTML = months.map(m =>
+    '<button class="chip' + (m.key === rpMonth ? ' on' : '') + '" data-action="rp-month" data-key="' + m.key + '" style="min-width:66px">' + esc(m.label) + '</button>'
+  ).join('');
+
+  // --- category breakdown for selected month ---
+  const key = rpMonth;
+  const groups = {};
+  state.tx.forEach(t => {
+    if (t.type !== 'expense') return;
+    if (monthKey(new Date(t.date + 'T00:00:00')) !== key) return;
+    groups[t.cat] = (groups[t.cat] || 0) + t.amount;
+  });
+  const list = Object.keys(groups).map(k => ({ cat:k, amount:groups[k] })).sort((a,b) => b.amount - a.amount);
+  const mExp = list.reduce((s,x) => s + x.amount, 0);
+  $('#rp-cats').innerHTML = list.length ? list.map(x => {
+    const c = catOf('expense', x.cat);
+    const pct = mExp > 0 ? x.amount / mExp * 100 : 0;
+    return '<div class="cat-row">' +
+      '<div class="cat-top"><span class="cat-ico">' + c.icon + '</span><span>' + esc(catName(c)) + '</span>' +
+      '<span class="cat-amt">' + money(x.amount) + ' <span class="tiny muted">' + Math.round(pct) + '%</span></span></div>' +
+      '<div class="bar"><i style="width:' + pct.toFixed(1) + '%"></i></div></div>';
+  }).join('') : emptyBlock('📭', T('noData'), T('byCategory'));
+
+  // --- insights ---
+  const rows = [];
+  if (list.length){
+    const c = catOf('expense', list[0].cat);
+    rows.push(['🏆', T('topCat'), c.icon + ' ' + catName(c), money(list[0].amount)]);
+  }
+  const monthTx = state.tx.filter(t => t.type === 'expense' && monthKey(new Date(t.date+'T00:00:00')) === key)
+                          .sort((a,b) => b.amount - a.amount);
+  if (monthTx.length){
+    const t = monthTx[0];
+    rows.push(['💥', T('bigExp'), esc(t.note || catName(catOf('expense', t.cat))) + ' · ' + fmtDate(t.date), money(t.amount)]);
+  }
+  const prevIdx = months.findIndex(m => m.key === key) - 1;
+  if (prevIdx >= 0){
+    const prev = months[prevIdx];
+    const cur = months[prevIdx+1] || months[months.length-1];
+    const diff = cur.exp - prev.exp;
+    const pct = prev.exp > 0 ? Math.abs(diff) / prev.exp * 100 : 0;
+    if (prev.exp > 0 || cur.exp > 0){
+      rows.push([diff > 0 ? '📈' : '📉', T('vsLast') + ' ' + prev.label, (diff > 0 ? T('moreSpend') : T('lessSpend')), Math.round(pct) + '%']);
+    }
+  }
+  $('#rp-insights').innerHTML = rows.length ? rows.map(r =>
+    '<div class="tx" style="border-bottom:1px solid var(--line)">' +
+      '<span class="tx-ico">' + r[0] + '</span>' +
+      '<span class="tx-mid"><span class="tx-t">' + esc(r[1]) + '</span><span class="tx-d">' + r[2] + '</span></span>' +
+      '<span class="tx-amt">' + esc(r[3]) + '</span></div>'
+  ).join('') : emptyBlock('💡', T('noData'), T('byCategory'));
+}
+
+/* ---------------- render: PROFILE ---------------- */
+function renderProfile(){
+  $('#pr-name').textContent = state.profile.name || '—';
+  $('#pr-phone').textContent = state.profile.phone || '—';
+  $('#pf-avatar2').textContent = state.profile.avatar || '👤';
+  $('#pr-lang').textContent = state.lang === 'hi' ? 'हिंदी' : 'English';
+  $('#pr-theme').textContent = state.theme === 'dark'
+    ? (state.lang === 'hi' ? 'डार्क' : 'Dark')
+    : (state.lang === 'hi' ? 'लाइट' : 'Light');
+  $('#pr-budget').textContent = money(state.budget);
+}
+
+function renderAll(){
+  renderHome(); renderPortfolio(); renderReports(); renderProfile();
+}
+function applyStatic(){
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const k = el.getAttribute('data-i18n');
+    if (I18N[state.lang][k]) el.textContent = I18N[state.lang][k];
+  });
+  const brand = state.lang === 'hi' ? CONFIG.brandHi : CONFIG.brand;
+  $('#ab-brand').textContent = CONFIG.brand + ' · ' + CONFIG.brandHi;
+  $('#ab-brand2').textContent = brand;
+  $('#ab-ver').textContent = 'v' + CONFIG.version + ' · ' + (state.lang==='hi'?'सिंगल HTML फ़ाइल':'single HTML file');
+  document.title = brand + ' — ' + (state.lang==='hi' ? 'पर्सनल फ़ाइनेंस ट्रैकर' : 'Personal Finance Tracker');
+}
+
+/* ---------------- sheet engine ---------------- */
+let pendingAction = null;
+function openSheet(){ $('#sheet').classList.add('on'); $('#backdrop').classList.add('on'); }
+function closeSheet(){
+  $('#sheet').classList.remove('on'); $('#backdrop').classList.remove('on');
+  setTimeout(() => { if (!$('#sheet').classList.contains('on')) $('#sheet-body').innerHTML = ''; }, 320);
+}
+function renderSheet(html){ $('#sheet-body').innerHTML = html; }
+function toast(msg, isErr){
+  const t = document.createElement('div');
+  t.className = 'toast' + (isErr ? ' err' : '');
+  t.innerHTML = (isErr ? '⚠️ ' : '✅ ') + esc(msg);
+  $('#toasts').appendChild(t);
+  setTimeout(() => { t.style.transition = 'opacity .3s, transform .3s'; t.style.opacity = '0'; t.style.transform = 'translateY(10px)'; }, 2100);
+  setTimeout(() => t.remove(), 2500);
+}
+function confirmSheet(title, msg, label, fn){
+  pendingAction = fn;
+  renderSheet(
+    '<div class="sheet-title">' + esc(title) + '</div>' +
+    '<div class="sheet-sub">' + esc(msg) + '</div>' +
+    '<div class="btn-row"><button class="btn ghost" data-action="close-sheet">' + esc(T('cancel')) + '</button>' +
+    '<button class="btn danger" data-action="confirm-yes">' + esc(label) + '</button></div>'
+  );
+  openSheet();
+}
+
+/* ---------------- sheets: add / edit transaction ---------------- */
+function chipsHTML(type, selected){
+  return CATS[type].map(c =>
+    '<button class="chip' + (c.id === selected ? ' on' : '') + '" data-action="pick-cat" data-cat="' + c.id + '">' +
+    '<i>' + c.icon + '</i><span>' + esc(catName(c)) + '</span></button>'
+  ).join('');
+}
+function addTxSheet(type, editId){
+  form = { type: type || 'expense', cat: (type === 'income' ? 'salary' : 'food'), id: editId || null };
+  let amount = '', date = iso(new Date()), note = '';
+  if (editId){
+    const t = state.tx.find(x => x.id === editId);
+    if (t){ form.type = t.type; form.cat = t.cat; amount = t.amount; date = t.date; note = t.note || ''; }
+  }
+  const isInc = form.type === 'income';
+  renderSheet(
+    '<div class="sheet-title">' + (editId ? esc(T('txDetail')) : esc(T('addTx'))) + '</div>' +
+    '<div class="sheet-sub">' + fmtDate(date) + '</div>' +
+    '<div class="seg">' +
+      '<button class="inc' + (isInc ? ' on' : '') + '" data-action="seg-tx" data-type="income">⬇️ ' + esc(T('income')) + '</button>' +
+      '<button class="exp' + (!isInc ? ' on' : '') + '" data-action="seg-tx" data-type="expense">⬆️ ' + esc(T('expense')) + '</button>' +
+    '</div>' +
+    '<div class="field mt12"><label class="label">' + esc(T('amount')) + '</label>' +
+      '<div class="amount-wrap"><span>' + CONFIG.symbol + '</span>' +
+      '<input class="amount-input" id="f-amount" type="number" inputmode="decimal" step="any" placeholder="0" value="' + (amount !== '' ? esc(amount) : '') + '"></div></div>' +
+    '<div class="field"><label class="label">' + esc(T('category')) + '</label>' +
+      '<div class="chips" id="f-cats">' + chipsHTML(form.type, form.cat) + '</div></div>' +
+    '<div class="field"><label class="label">' + esc(T('date')) + '</label>' +
+      '<input class="input" id="f-date" type="date" value="' + date + '"></div>' +
+    '<div class="field"><label class="label">' + esc(T('note')) + '</label>' +
+      '<input class="input" id="f-note" type="text" maxlength="60" placeholder="' + esc(T('notePh')) + '" value="' + esc(note) + '"></div>' +
+    '<button class="btn" data-action="save-tx">' + esc(T('save')) + '</button>' +
+    '<button class="btn ghost mt8" data-action="close-sheet">' + esc(T('cancel')) + '</button>'
+  );
+  openSheet();
+  setTimeout(() => { const a = $('#f-amount'); if (a && !editId) a.focus(); }, 340);
+}
+function saveTx(){
+  const amount = num($('#f-amount') && $('#f-amount').value);
+  const date = ($('#f-date') && $('#f-date').value) || iso(new Date());
+  const note = ($('#f-note') && $('#f-note').value || '').trim();
+  if (!(amount > 0)) { toast(T('amountErr'), true); return; }
+  if (form.id){
+    const t = state.tx.find(x => x.id === form.id);
+    if (t){ t.amount = amount; t.date = date; t.note = note; t.cat = form.cat; t.type = form.type; }
+  } else {
+    state.tx.push({ id:uid(), type:form.type, cat:form.cat, amount, date, note });
+  }
+  save(); closeSheet(); renderAll(); toast(T('saved'));
+}
+function txDetailSheet(id){
+  const t = state.tx.find(x => x.id === id);
+  if (!t) return;
+  const c = catOf(t.type, t.cat), inc = t.type === 'income';
+  renderSheet(
+    '<div class="sheet-title">' + esc(t.note || catName(c)) + '</div>' +
+    '<div class="sheet-sub">' + esc(catName(c)) + ' · ' + fmtDate(t.date) + '</div>' +
+    '<div class="card" style="box-shadow:none;background:var(--card-2)">' +
+      '<div class="row-between"><span class="muted tiny">' + esc(T('amount')) + '</span>' +
+      '<span class="strong ' + (inc ? 'up' : 'down') + '" style="font-size:20px">' + (inc ? '+' : '−') + money(t.amount) + '</span></div>' +
+      '<div class="row-between mt8"><span class="muted tiny">' + esc(T('category')) + '</span><span class="strong tiny">' + c.icon + ' ' + esc(catName(c)) + '</span></div>' +
+      '<div class="row-between mt8"><span class="muted tiny">' + esc(T('date')) + '</span><span class="strong tiny">' + fmtDate(t.date) + '</span></div>' +
+    '</div>' +
+    '<button class="btn mt12" data-action="edit-tx" data-id="' + t.id + '">✏️ ' + esc(T('edit')) + '</button>' +
+    '<button class="btn danger mt8" data-action="del-tx" data-id="' + t.id + '">🗑️ ' + esc(T('delete')) + '</button>' +
+    '<button class="btn ghost mt8" data-action="close-sheet">' + esc(T('close')) + '</button>'
+  );
+  openSheet();
+}
+function allTxSheet(){
+  const list = state.tx.slice().sort((a,b) => a.date < b.date ? 1 : -1)
+    .filter(t => txFilter === 'all' ? true : t.type === txFilter);
+  renderSheet(
+    '<div class="sheet-title">' + esc(T('allTx')) + '</div>' +
+    '<div class="sheet-sub">' + list.length + ' ' + (state.lang==='hi'?'एंट्री':'entries') + ' · ' + money(list.reduce((s,t) => s + (t.type==='income'?t.amount:-t.amount), 0), true) + '</div>' +
+    '<div style="display:flex; gap:8px; margin-bottom:12px">' +
+      [['all',T('filterAll')],['income',T('filterIn')],['expense',T('filterOut')]].map(f =>
+        '<button class="chip' + (txFilter === f[0] ? ' on' : '') + '" data-action="tx-filter" data-f="' + f[0] + '" style="flex:1"> ' + esc(f[1]) + '</button>'
+      ).join('') +
+    '</div>' +
+    '<div>' + (list.length ? list.map(txRow).join('') : emptyBlock('🧾', T('noTx'), T('noTxSub'))) + '</div>'
+  );
+  openSheet();
+}
+
+/* ---------------- sheets: holdings ---------------- */
+function addHoldingSheet(editId){
+  let h = { name:'', type:'mf', invested:'', current:'', note:'' };
+  if (editId){ const x = state.holdings.find(y => y.id === editId); if (x) h = x; }
+  renderSheet(
+    '<div class="sheet-title">' + (editId ? esc(T('editHold')) : esc(T('newHold'))) + '</div>' +
+    '<div class="sheet-sub">' + esc(T('holdType')) + ' — ' + esc(typeName(h.type)) + '</div>' +
+    '<div class="field"><label class="label">' + esc(T('holdName')) + '</label>' +
+      '<input class="input" id="h-name" type="text" maxlength="60" placeholder="' + esc(T('holdNamePh')) + '" value="' + esc(h.name) + '"></div>' +
+    '<div class="field"><label class="label">' + esc(T('holdType')) + '</label>' +
+      '<select class="input" id="h-type">' + Object.keys(HTYPES).map(k =>
+        '<option value="' + k + '"' + (k === h.type ? ' selected' : '') + '>' + HTYPES[k].icon + ' ' + esc(typeName(k)) + '</option>').join('') +
+      '</select></div>' +
+    '<div class="field"><label class="label">' + esc(T('holdInv')) + '</label>' +
+      '<input class="input" id="h-inv" type="number" inputmode="decimal" step="any" placeholder="0" value="' + esc(h.invested) + '"></div>' +
+    '<div class="field"><label class="label">' + esc(T('holdCur')) + '</label>' +
+      '<input class="input" id="h-cur" type="number" inputmode="decimal" step="any" placeholder="0" value="' + esc(h.current) + '"></div>' +
+    '<button class="btn" data-action="save-hold" data-id="' + (editId||'') + '">' + esc(T('save')) + '</button>' +
+    (editId ? '<button class="btn danger mt8" data-action="del-hold" data-id="' + editId + '">🗑️ ' + esc(T('delete')) + '</button>' : '') +
+    '<button class="btn ghost mt8" data-action="close-sheet">' + esc(T('cancel')) + '</button>'
+  );
+  openSheet();
+}
+function saveHold(id){
+  const name = ($('#h-name') && $('#h-name').value || '').trim();
+  const type = $('#h-type') ? $('#h-type').value : 'mf';
+  const inv = num($('#h-inv') && $('#h-inv').value);
+  const cur = num($('#h-cur') && $('#h-cur').value);
+  if (!name){ toast(T('nameErr'), true); return; }
+  if (id){
+    const h = state.holdings.find(x => x.id === id);
+    if (h){ h.name = name; h.type = type; h.invested = inv; h.current = cur || inv; }
+  } else {
+    state.holdings.push({ id:uid(), name, type, invested:inv, current:cur || inv, note:'' });
+  }
+  save(); closeSheet(); renderAll(); toast(T('saved'));
+}
+function holdDetailSheet(id){
+  const h = state.holdings.find(x => x.id === id);
+  if (!h) return;
+  const ht = HTYPES[h.type] || HTYPES.cash;
+  const pnl = num(h.current) - num(h.invested);
+  const pct = num(h.invested) > 0 ? pnl / num(h.invested) * 100 : 0;
+  renderSheet(
+    '<div class="sheet-title">' + ht.icon + ' ' + esc(h.name) + '</div>' +
+    '<div class="sheet-sub">' + esc(typeName(h.type)) + (h.note ? ' · ' + esc(h.note) : '') + '</div>' +
+    '<div class="card" style="box-shadow:none;background:var(--card-2)">' +
+      '<div class="row-between"><span class="muted tiny">' + esc(T('invested')) + '</span><span class="strong">' + money(h.invested) + '</span></div>' +
+      '<div class="row-between mt8"><span class="muted tiny">' + esc(T('currentValue')) + '</span><span class="strong">' + money(h.current) + '</span></div>' +
+      '<div class="row-between mt8"><span class="muted tiny">' + esc(T('pnl')) + '</span>' +
+        '<span class="strong ' + (pnl >= 0 ? 'up' : 'down') + '">' + money(pnl, true) + ' (' + (pct>=0?'+':'') + pct.toFixed(1) + '%)</span></div>' +
+    '</div>' +
+    '<button class="btn mt12" data-action="edit-hold" data-id="' + h.id + '">✏️ ' + esc(T('edit')) + '</button>' +
+    '<button class="btn ghost mt8" data-action="close-sheet">' + esc(T('close')) + '</button>'
+  );
+  openSheet();
+}
+
+/* ---------------- sheets: goals ---------------- */
+function addGoalSheet(){
+  renderSheet(
+    '<div class="sheet-title">' + esc(T('goalNew')) + '</div>' +
+    '<div class="sheet-sub">' + esc(T('goals')) + '</div>' +
+    '<div class="field"><label class="label">' + esc(T('goalTitle')) + '</label>' +
+      '<input class="input" id="g-title" type="text" maxlength="40" placeholder="' + esc(T('goalTitlePh')) + '"></div>' +
+    '<div class="field"><label class="label">' + esc(T('goalTarget')) + ' (' + CONFIG.symbol + ')</label>' +
+      '<input class="input" id="g-target" type="number" inputmode="decimal" step="any" placeholder="50000"></div>' +
+    '<div class="field"><label class="label">' + esc(T('goalSaved')) + ' (' + CONFIG.symbol + ')</label>' +
+      '<input class="input" id="g-saved" type="number" inputmode="decimal" step="any" placeholder="0" value="0"></div>' +
+    '<button class="btn" data-action="save-goal">' + esc(T('save')) + '</button>' +
+    '<button class="btn ghost mt8" data-action="close-sheet">' + esc(T('cancel')) + '</button>'
+  );
+  openSheet();
+}
+function saveGoal(){
+  const title = ($('#g-title') && $('#g-title').value || '').trim();
+  const target = num($('#g-target') && $('#g-target').value);
+  const saved = num($('#g-saved') && $('#g-saved').value);
+  if (!title){ toast(T('nameErr'), true); return; }
+  if (!(target > 0)){ toast(T('amountErr'), true); return; }
+  state.goals.push({ id:uid(), title, target, saved:Math.max(0, saved) });
+  save(); closeSheet(); renderAll(); toast(T('saved'));
+}
+function goalDetailSheet(id){
+  const g = state.goals.find(x => x.id === id);
+  if (!g) return;
+  const p = g.target > 0 ? clamp(g.saved / g.target * 100, 0, 100) : 0;
+  renderSheet(
+    '<div class="sheet-title">🎯 ' + esc(g.title) + '</div>' +
+    '<div class="sheet-sub">' + money(g.saved) + ' / ' + money(g.target) + ' · ' + Math.round(p) + '%</div>' +
+    '<div class="bar"><i style="width:' + p.toFixed(1) + '%"></i></div>' +
+    '<div class="field mt16"><label class="label">' + esc(T('addMoney')) + ' (' + CONFIG.symbol + ')</label>' +
+      '<input class="input" id="g-add" type="number" inputmode="decimal" step="any" placeholder="1000"></div>' +
+    '<button class="btn" data-action="goal-add-money" data-id="' + g.id + '">＋ ' + esc(T('saveInto')) + '</button>' +
+    '<button class="btn danger mt8" data-action="del-goal" data-id="' + g.id + '">🗑️ ' + esc(T('delete')) + '</button>' +
+    '<button class="btn ghost mt8" data-action="close-sheet">' + esc(T('close')) + '</button>'
+  );
+  openSheet();
+}
+
+/* ---------------- sheets: budget / profile / tips ---------------- */
+function budgetSheet(){
+  renderSheet(
+    '<div class="sheet-title">' + esc(T('budgetEdit')) + '</div>' +
+    '<div class="sheet-sub">' + esc(T('budgetSub')) + '</div>' +
+    '<div class="field"><label class="label">' + esc(T('budget')) + ' (' + CONFIG.symbol + ')</label>' +
+      '<input class="input" id="b-amt" type="number" inputmode="decimal" step="any" placeholder="' + esc(T('budgetPh')) + '" value="' + num(state.budget) + '"></div>' +
+    '<button class="btn" data-action="save-budget">' + esc(T('save')) + '</button>' +
+    '<button class="btn ghost mt8" data-action="close-sheet">' + esc(T('cancel')) + '</button>'
+  );
+  openSheet();
+  setTimeout(() => { const i = $('#b-amt'); if (i) i.focus(); }, 340);
+}
+function profileSheet(){
+  const avatars = ['👤','🧑','👩','👨‍🌾','🧑‍💻','🙂','😎','🌱','🐝','🦁'];
+  renderSheet(
+    '<div class="sheet-title">' + esc(T('profileEdit')) + '</div>' +
+    '<div class="sheet-sub">' + esc(T('myInfoSub')) + '</div>' +
+    '<div class="field"><label class="label">' + esc(T('name')) + '</label>' +
+      '<input class="input" id="p-name" type="text" maxlength="30" value="' + esc(state.profile.name) + '"></div>' +
+    '<div class="field"><label class="label">' + esc(T('phone')) + '</label>' +
+      '<input class="input" id="p-phone" type="tel" maxlength="18" value="' + esc(state.profile.phone) + '"></div>' +
+    '<div class="field"><label class="label">' + esc(T('avatar')) + '</label>' +
+      '<div class="chips" style="grid-template-columns:repeat(5,1fr)">' + avatars.map(a =>
+        '<button class="chip' + (a === state.profile.avatar ? ' on' : '') + '" data-action="pick-avatar" data-a="' + a + '"><i>' + a + '</i></button>').join('') +
+      '</div></div>' +
+    '<button class="btn" data-action="save-profile">' + esc(T('saveProfile')) + '</button>' +
+    '<button class="btn ghost mt8" data-action="close-sheet">' + esc(T('cancel')) + '</button>'
+  );
+  openSheet();
+}
+function tipsSheet(){
+  renderSheet(
+    '<div class="sheet-title">🔔 ' + esc(T('tips')) + '</div>' +
+    '<div class="sheet-sub">' + esc(T('tipsSub')) + '</div>' +
+    [1,2,3,4].map(i =>
+      '<div class="card" style="box-shadow:none;background:var(--card-2);margin-bottom:10px">' +
+      '<div class="tiny" style="line-height:1.6">' + esc(T('tip' + i)) + '</div></div>'
+    ).join('') +
+    '<button class="btn ghost" data-action="close-sheet">' + esc(T('close')) + '</button>'
+  );
+  openSheet();
+}
+
+/* ---------------- export / import ---------------- */
+function exportData(){
+  try{
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type:'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'merapaisa-backup-' + iso(new Date()) + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast(T('exportDone'));
+  }catch(e){ toast(T('importErr'), true); }
+}
+function importData(file){
+  const fr = new FileReader();
+  fr.onload = () => {
+    try{
+      const s = JSON.parse(fr.result);
+      if (!s || !Array.isArray(s.tx)) throw new Error('bad');
+      state = {
+        lang: s.lang || 'hi', theme: s.theme || 'light', budget: s.budget || 25000,
+        profile: s.profile || { name:'', phone:'', avatar:'👤' },
+        tx: s.tx, holdings: s.holdings || [], goals: s.goals || []
+      };
+      document.documentElement.setAttribute('data-theme', state.theme);
+      document.documentElement.lang = state.lang;
+      rpMonth = monthKey(new Date());
+      save(); applyStatic(); renderAll(); closeSheet();
+      toast(T('importDone'));
+    }catch(e){ toast(T('importErr'), true); }
+  };
+  fr.readAsText(file);
+}
+
+/* ---------------- tabs ---------------- */
+function switchTab(name){
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === 'v-' + name));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('on', b.getAttribute('data-tab') === name));
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+
+/* ---------------- events ---------------- */
+function bind(){
+  document.querySelectorAll('.nav-btn[data-tab]').forEach(b => {
+    b.addEventListener('click', () => {
+      const t = b.getAttribute('data-tab');
+      if (t === 'add') return;
+      switchTab(t);
+    });
+  });
+
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-action]');
+    if (!el) return;
+    const a = el.getAttribute('data-action');
+    const id = el.getAttribute('data-id');
+
+    switch(a){
+      case 'close-sheet': closeSheet(); break;
+      case 'confirm-yes': if (pendingAction) pendingAction(); pendingAction = null; break;
+
+      case 'add-income':  addTxSheet('income');  break;
+      case 'add-expense': addTxSheet('expense'); break;
+      case 'open-add':    addTxSheet('expense'); break;
+      case 'go-portfolio': switchTab('portfolio'); break;
+      case 'go-reports':   switchTab('reports');   break;
+
+      case 'seg-tx':
+        form.type = el.getAttribute('data-type');
+        form.cat = form.type === 'income' ? 'salary' : 'food';
+        document.querySelectorAll('.seg button').forEach(b => b.classList.toggle('on', b.getAttribute('data-type') === form.type));
+        $('#f-cats').innerHTML = chipsHTML(form.type, form.cat);
+        break;
+      case 'pick-cat':
+        form.cat = el.getAttribute('data-cat');
+        $('#f-cats').innerHTML = chipsHTML(form.type, form.cat);
+        break;
+      case 'save-tx': saveTx(); break;
+      case 'tx-detail': txDetailSheet(id); break;
+      case 'edit-tx': addTxSheet(null, id); break;
+      case 'del-tx':
+        confirmSheet(T('delete'), T('txDetail') + ' · ' + (state.lang==='hi'?'पक्का हटाना है?':'Delete this entry?'), T('delete'), () => {
+          state.tx = state.tx.filter(t => t.id !== id);
+          save(); renderAll(); closeSheet(); toast(T('deleted'));
+        });
+        break;
+      case 'all-tx': allTxSheet(); break;
+      case 'tx-filter': txFilter = el.getAttribute('data-f'); allTxSheet(); break;
+
+      case 'add-holding':   addHoldingSheet(null); break;
+      case 'hold-detail':   holdDetailSheet(id); break;
+      case 'edit-hold':     addHoldingSheet(id); break;
+      case 'save-hold':     saveHold(id || null); break;
+      case 'del-hold':
+        confirmSheet(T('delete'), (state.lang==='hi'?'यह निवेश हटाना है?':'Delete this holding?'), T('delete'), () => {
+          state.holdings = state.holdings.filter(h => h.id !== id);
+          save(); renderAll(); closeSheet(); toast(T('deleted'));
+        });
+        break;
+
+      case 'add-goal':  addGoalSheet(); break;
+      case 'goal-detail': goalDetailSheet(id); break;
+      case 'save-goal': saveGoal(); break;
+      case 'goal-add-money': {
+        const g = state.goals.find(x => x.id === id);
+        const v = num($('#g-add') && $('#g-add').value);
+        if (!g || !(v > 0)){ toast(T('amountErr'), true); break; }
+        g.saved += v;
+        save(); closeSheet(); renderAll(); toast(T('saved'));
+        break;
+      }
+      case 'del-goal':
+        confirmSheet(T('delete'), (state.lang==='hi'?'यह लक्ष्य हटाना है?':'Delete this goal?'), T('delete'), () => {
+          state.goals = state.goals.filter(g => g.id !== id);
+          save(); renderAll(); closeSheet(); toast(T('deleted'));
+        });
+        break;
+
+      case 'edit-budget': budgetSheet(); break;
+      case 'save-budget': {
+        const v = num($('#b-amt') && $('#b-amt').value);
+        if (!(v > 0)){ toast(T('amountErr'), true); break; }
+        state.budget = v; save(); closeSheet(); renderAll(); toast(T('saved'));
+        break;
+      }
+      case 'edit-profile': profileSheet(); break;
+      case 'pick-avatar':
+        state.profile.avatar = el.getAttribute('data-a');
+        document.querySelectorAll('.chip[data-action="pick-avatar"]').forEach(c => c.classList.toggle('on', c.getAttribute('data-a') === state.profile.avatar));
+        break;
+      case 'save-profile': {
+        const n = ($('#p-name') && $('#p-name').value || '').trim();
+        if (!n){ toast(T('nameErr'), true); break; }
+        state.profile.name = n;
+        state.profile.phone = ($('#p-phone') && $('#p-phone').value || '').trim();
+        save(); closeSheet(); renderAll(); toast(T('saved'));
+        break;
+      }
+
+      case 'toggle-lang':
+        state.lang = state.lang === 'hi' ? 'en' : 'hi';
+        document.documentElement.lang = state.lang;
+        save(); applyStatic(); renderAll(); closeSheet();
+        toast(state.lang === 'hi' ? 'भाषा: हिंदी' : 'Language: English');
+        break;
+      case 'toggle-theme':
+        state.theme = state.theme === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', state.theme);
+        save(); renderAll(); toast(state.theme === 'dark' ? '🌙 Dark' : '☀️ Light');
+        break;
+
+      case 'export': exportData(); break;
+      case 'import': { const f = $('#importFile'); if (f) f.click(); break; }
+      case 'reset':
+        confirmSheet(T('reset'), T('confirmReset'), T('yesReset'), () => {
+          const keepLang = state.lang, keepTheme = state.theme;   // preferences stay as chosen
+          state = seedState();
+          state.lang = keepLang; state.theme = keepTheme;
+          rpMonth = monthKey(new Date());
+          document.documentElement.setAttribute('data-theme', state.theme);
+          document.documentElement.lang = state.lang;
+          save(); applyStatic(); renderAll(); closeSheet(); toast(T('setupOk'));
+        });
+        break;
+      case 'wipe':
+        confirmSheet(T('wipe'), T('confirmWipe'), T('yesWipe'), () => {
+          state = {
+            lang: state.lang, theme: state.theme, budget: 25000,
+            profile: { name:'', phone:'', avatar:'👤' }, tx:[], holdings:[], goals:[]
+          };
+          save(); applyStatic(); renderAll(); closeSheet(); toast(T('deleted'));
+        });
+        break;
+
+      case 'tips': tipsSheet(); break;
+      case 'rp-month': rpMonth = el.getAttribute('data-key'); renderReports(); break;
+    }
+  });
+
+  const fileInput = $('#importFile');
+  if (fileInput) fileInput.addEventListener('change', ev => {
+    const f = ev.target.files && ev.target.files[0];
+    if (f) importData(f);
+    ev.target.value = '';
+  });
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+}
+
+/* ---------------- boot ---------------- */
+function init(){
+  state = loadState();
+  rpMonth = monthKey(new Date());
+  document.documentElement.setAttribute('data-theme', state.theme);
+  document.documentElement.lang = state.lang;
+  applyStatic();
+  renderAll();
+  bind();
+  save();
+  console.log(CONFIG.brand + ' v' + CONFIG.version + ' ready — offline, single file, no server.');
+}
+init();
+
+
+</script>
+</body>
+</html>
