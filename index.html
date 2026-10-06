@@ -1057,7 +1057,7 @@ function renderPortfolio(){
       '<span class="tx-ico" style="color:' + ht.color + '">' + ht.icon + '</span>' +
       '<span class="tx-mid"><span class="tx-t">' + esc(h.name) + '</span>' +
       '<span class="tx-d">' + esc(typeName(h.type)) + ' · ' + money(inv) + ' → ' + money(cur) + '</span></span>' +
-      '<span class="tx-amt ' + (pnl >= 0 ? 'up' : 'down') + '">' + (pnl>=0?'+':'−') + money(pnl) +
+      '<span class="tx-amt ' + (pnl >= 0 ? 'up' : 'down') + '">' + (pnl>=0?'+':'−') + money(Math.abs(pnl)) +
       '<br><span class="tiny muted">' + (pct>=0?'+':'') + pct.toFixed(1) + '%</span></span></button>';
   }).join('') : emptyBlock('📈', T('noHold'), T('noHoldSub'));
 }

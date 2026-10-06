@@ -5,6 +5,30 @@ Koi server nahi, koi login nahi, koi internet nahi. Sirf `index.html` kholo aur 
 
 ---
 
+## App kholne ke links
+
+**1. Abhi, bina kisi setup ke (public link — kisi bhi phone/browser me kholo):**
+
+```
+https://htmlpreview.github.io/?https://github.com/ranumeena133-hue/Build-studio-/blob/arena/35308669-build-studio/index.html
+```
+
+**2. Permanent saaf link (GitHub Pages) — ek baar enable karna hai:**
+
+Repo me jaake `Settings → Pages → Build and deployment → Source: "GitHub Actions"` chuno.
+Phir link ye hoga (har push pe auto-update):
+
+```
+https://ranumeena133-hue.github.io/Build-studio-/
+```
+
+**3. Apne phone/laptop me offline file:**
+
+`index.html` download karo (GitHub pe file kholke **⤓ Download raw file**), phir browser se kholo —
+internet band hone pe bhi poora app chalega.
+
+---
+
 ## Kaise chalayein
 
 **Option 1 — seedha phone/laptop me:**
