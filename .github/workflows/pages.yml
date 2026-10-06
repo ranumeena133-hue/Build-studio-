@@ -1,5 +1,10 @@
 name: Deploy app to GitHub Pages
 
+# Note: GitHub Pages must be enabled once in repo settings:
+#   Settings → Pages → Build and deployment → Source: "GitHub Actions"
+# After that, every push to these branches auto-deploys the app.
+# Until then this workflow stays green and just prints a notice.
+
 on:
   push:
     branches: [arena/35308669-build-studio, main]
@@ -24,22 +29,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Pages (auto-enable)
+      - name: Check if Pages is enabled
+        id: pages
+        continue-on-error: true
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
+
+      - name: Notice when Pages is off
+        if: steps.pages.outcome != 'success'
+        run: |
+          echo "::notice title=GitHub Pages is not enabled::Enable it once at Settings → Pages → Source: 'GitHub Actions', then re-run this workflow. Your app already works via the CDN link in README.md."
 
       - name: Package app
+        if: steps.pages.outcome == 'success'
         run: |
           mkdir -p _site
           cp index.html _site/index.html
-          [ -f README.md ] && cp README.md _site/README.md || true
+          if [ -f README.md ]; then cp README.md _site/README.md; fi
 
       - name: Upload artifact
+        if: steps.pages.outcome == 'success'
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
       - name: Deploy
         id: deployment
+        if: steps.pages.outcome == 'success'
         uses: actions/deploy-pages@v4
